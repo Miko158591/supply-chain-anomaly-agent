@@ -391,6 +391,54 @@ CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek) → 
 - ThreadPoolExecutor 异步处理，避免飞书 3 秒超时
 - 命令去重：同一消息 30 秒内不重复处理
 
+---
+
+# 2026-05-21 — 评测体系建设 + 评委模型 V4 Pro 适配
+
+## 完成的工作
+
+### 1. 评测体系
+- `eval/test_cases.json`: 10 个手工标注样本（7 异常 + 3 正常/边缘），含标准答案
+- `eval/run_eval.py`: 自动评测脚本，3 项指标（检测 F1 + 归因评分 + 端到端延迟）
+- `eval/report_template.md`: 结构化报告模板（含前后对比表）
+- 评委模型可配置：`config.yaml → llm.judge`，支持任何 OpenAI 兼容模型
+
+### 2. V4 Pro 评委适配
+- 根因：评测脚本写死 `max_tokens=400` → V4 Pro 输出截断 → JSON 解析失败
+- 修复：`llm.judge.max_tokens=4096` + `eval/run_eval.py` 从配置读取
+- V4 Pro 评委结果：整体 3.2/5 | 行动 4.4 | 诚实 4.4 | 逻辑 3.4 | 证据 2.0
+- V4 Pro 比 V3 更严格：发现 TC002 归因逻辑矛盾（利润 $31.52 被当成亏损），给 1 分
+
+### 3. 评委模型对比
+
+| 评委 | 整体 | 证据 | 逻辑 | 行动 | 诚实 | 特点 |
+|------|------|------|------|------|------|------|
+| V4 Pro | 3.2 | 2.0 | 3.4 | 4.4 | 4.4 | 更严格，发现逻辑错误 |
+| V3 | 3.0 | 2.0 | 3.6 | 4.2 | 5.0 | 更宽容，诚实度满分 |
+
+**结论**：跨版本评委机制有效。V4 Pro 作为评委比 V3 更挑剔，更接近真实业务场景的质检标准。
+
+### 4. 评测指标说明
+
+| 指标 | 值 | 说明 |
+|------|-----|------|
+| 检测 F1 | 61.5% (10 样本) | 需扩充到 50 样本后重新评估 |
+| 归因均分 | 3.2/5 (V4 Pro) | 证据充分性 2.0 是瓶颈 |
+| 端到端延迟 | 95.5s | 检测 73s + 归因 22s/条 |
+| 评测评委 | `llm.judge` 可配置 | 当前 V4 Pro，换模型改一行配置 |
+
+### 5. 技术债务 & 改进方向
+- 测试样本从 10 个扩充到 50 个（30 异常 + 20 正常）
+- 证据充分性 2.0/5 是最大短板——归因 evidence 多引用 SOP 而非具体数据
+- 可尝试在 Few-Shot 示例中加入"坏案例"来改善证据质量
+
+## 当前运行状态
+
+- Webhook + ngrok 后台运行中
+- 归因模型：deepseek-v4-flash，max_tokens=4096
+- 评测评委：deepseek-v4-pro，max_tokens=4096
+- 评测命令：`python eval/run_eval.py`（跳过评委用 `--skip-llm`）
+- 手动触发日报：`python skills/supply-chain-monitor/monitor.py --mode daily`
 ### 3. 飞书应用迁移
 - 旧应用 `cli_aa89b3cb89b85cc7` → 新应用 `cli_aa87430bdfb8dcc3`
 - 拆分为两个机器人：日常 chat + 供应链监控
