@@ -6,7 +6,7 @@ Layer 1: 日报卡片 — Top 5 高风险完整信息（根因 + 建议），不
 交互命令: "全部"/"高风险" → Excel 文件，"中风险" → Excel 文件
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 # ============================================================
@@ -14,34 +14,65 @@ from typing import Any, Dict, List
 # ============================================================
 
 def format_daily_summary(stats: Dict[str, Any], reports: List[Dict],
-                         report_date: str) -> str:
-    """日报卡片 — Top 5 高风险，每条含根因 + 行动建议。
+                         report_date: str,
+                         patterns: Optional[List[Dict]] = None,
+                         orphans: Optional[List[Dict]] = None) -> str:
+    """日报卡片 — 异常模式 + Top 高风险，每条含根因 + 行动建议。
 
-    Feishu lark_md div 上限约 5000 字符，5 条完整信息约 2000 字，安全。
+    Feishu lark_md div 上限约 5000 字符。
     """
     n_total = stats.get("total_anomalies", 0)
     n_high = stats.get("severity_counts", {}).get("high", 0)
     n_med = stats.get("severity_counts", {}).get("medium", 0)
     n_low = stats.get("severity_counts", {}).get("low", 0)
     n_llm = stats.get("llm_calls", 0)
+    pattern_stats = stats.get("patterns", {})
+    n_patterns = pattern_stats.get("total_patterns", 0) if isinstance(pattern_stats, dict) else 0
 
     lines = [
         f"供应链异常日报 | {report_date}",
         "",
         f"扫描 {n_total:,} 笔 | 高风险 {n_high:,} | 中风险 {n_med:,} | 低风险 {n_low:,} | AI 归因 {n_llm}",
-        "",
-        "【Top 5 高风险异常】",
-        "",
     ]
 
-    # 取高风险 LLM 归因报告，按置信度降序
+    patterns = patterns or []
+
+    # ── 异常模式（如有）──
+    if patterns:
+        lines.append("")
+        lines.append(f"【异常模式 · 发现 {len(patterns)} 个】")
+        lines.append("")
+
+        for i, pat in enumerate(patterns[:5], 1):
+            name = pat.get("pattern_name", f"模式 {i}")
+            ptype = pat.get("pattern_id", "")
+            order_count = pat.get("order_count", 0)
+            order_ids = pat.get("order_ids", [])[:5]
+            oid_list = ", #".join(str(o) for o in order_ids)
+            note = pat.get("sample_size_note", "")
+
+            emoji = {"delay_loss_composite": "\U0001F534",
+                     "category_concentration": "\U0001F7E1",
+                     "region_concentration": "\U0001F7E0"}.get(ptype, "\U0001F7E1")
+
+            lines.append(f"{emoji} **{name}**（{order_count} 笔）")
+            lines.append(f"> 涉及订单: #{oid_list}")
+            if pat.get("pattern_desc"):
+                lines.append(f"> {pat['pattern_desc']}")
+            if note:
+                lines.append(f"> ⚠️ {note}")
+            lines.append("")
+
+    # ── Top 高风险异常 ──
+    lines.append("【高风险异常 Top 5】")
+    lines.append("")
+
     llm_reports = [r for r in reports
                    if "error" not in r and r.get("_meta", {}).get("data_sufficient") is not False]
     high_reports = [r for r in llm_reports if r.get("risk_level") == "high"]
     high_reports.sort(key=lambda r: r.get("confidence", 0), reverse=True)
     top5 = high_reports[:5]
 
-    # 如果高风险不足 5 个，用中风险补齐
     if len(top5) < 5:
         med_reports = [r for r in llm_reports if r.get("risk_level") == "medium"]
         med_reports.sort(key=lambda r: r.get("confidence", 0), reverse=True)
@@ -56,7 +87,6 @@ def format_daily_summary(stats: Dict[str, Any], reports: List[Dict],
 
         lines.append(f"{emoji} **#{i} 订单 {oid}** | {risk.upper()} | 置信度 {conf:.0%}")
 
-        # 根因 + 建议
         hyps = r.get("root_cause_hypotheses", [])
         if hyps:
             cause = hyps[0].get("cause", "")

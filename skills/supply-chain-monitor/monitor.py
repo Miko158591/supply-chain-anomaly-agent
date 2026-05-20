@@ -41,6 +41,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from analysis.anomaly_detector import AnomalyDetector
 from analysis.attribution_agent import AttributionAgent
+from analysis.pattern_clusterer import cluster_anomalies
 
 # Skill 内部模块（SKILL_DIR 已在上面定义）
 sys.path.insert(0, SKILL_DIR)
@@ -96,8 +97,26 @@ def run_pipeline(df: pd.DataFrame, config: dict, mode: str,
     )
 
     if mode == "quick":
-        logger.info("quick 模式，跳过归因分析")
-        return {"anomalies_df": anomalies_df, "reports": reports, "stats": stats}
+        logger.info("quick 模式，跳过归因和聚类")
+        # quick 模式也跑聚类，供调试
+        anomalies_list = anomalies_df.to_dict(orient="records")
+        cluster_result = cluster_anomalies(anomalies_list, config)
+        stats["patterns"] = cluster_result["stats"]
+        return {"anomalies_df": anomalies_df, "reports": reports, "stats": stats,
+                "patterns": cluster_result.get("patterns", []),
+                "orphans": cluster_result.get("orphans", [])}
+
+    # 模式聚类
+    logger.info("运行异常模式聚类...")
+    anomalies_list = anomalies_df.to_dict(orient="records")
+    cluster_result = cluster_anomalies(anomalies_list, config)
+    stats["patterns"] = cluster_result["stats"]
+    pattern_count = cluster_result["stats"]["total_patterns"]
+    logger.info(
+        f"识别 {pattern_count} 个异常模式, "
+        f"{cluster_result['stats']['anomalies_in_patterns']} 条归入模式, "
+        f"{cluster_result['stats']['orphans']} 条孤立"
+    )
 
     logger.info("运行归因分析...")
     try:
@@ -117,7 +136,9 @@ def run_pipeline(df: pd.DataFrame, config: dict, mode: str,
         logger.warning(f"归因分析失败: {e}（可能未配置 API Key）")
         stats["errors"] = max_anomalies
 
-    return {"anomalies_df": anomalies_df, "reports": reports, "stats": stats}
+    return {"anomalies_df": anomalies_df, "reports": reports, "stats": stats,
+            "patterns": cluster_result.get("patterns", []),
+            "orphans": cluster_result.get("orphans", [])}
 
 
 # ================================================================
@@ -147,9 +168,12 @@ def smart_truncate(text: str, max_len: int = 200) -> str:
     return hard_cut
 
 
-def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dict[str, Any]:
-    """构建飞书日报卡片 — Layer 1 汇总格式，不超过 500 字。"""
-    content = format_daily_summary(stats, reports, report_date)
+def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str,
+                      patterns: Optional[List[Dict]] = None,
+                      orphans: Optional[List[Dict]] = None) -> Dict[str, Any]:
+    """构建飞书日报卡片 — 异常模式 + Top 5 高风险。"""
+    content = format_daily_summary(stats, reports, report_date,
+                                   patterns=patterns, orphans=orphans)
 
     return {
         "msg_type": "interactive",
@@ -207,7 +231,9 @@ def _send_via_app(app_id: str, app_secret: str, chat_id: str,
 
 
 def notify_feishu(lark_cfg: Dict, reports: List[Dict], stats: Dict,
-                  report_date: str) -> bool:
+                  report_date: str,
+                  patterns: Optional[List[Dict]] = None,
+                  orphans: Optional[List[Dict]] = None) -> bool:
     if not reports:
         logger.info("无异常报告，跳过推送")
         return False
@@ -216,7 +242,8 @@ def notify_feishu(lark_cfg: Dict, reports: List[Dict], stats: Dict,
         logger.info("飞书推送未启用 (enable_push=false)")
         return False
 
-    card = build_feishu_card(reports, stats, report_date)
+    card = build_feishu_card(reports, stats, report_date,
+                             patterns=patterns, orphans=orphans)
 
     app_id = lark_cfg.get("app_id", "")
     app_secret = lark_cfg.get("app_secret", "")
@@ -249,7 +276,9 @@ def notify_feishu(lark_cfg: Dict, reports: List[Dict], stats: Dict,
 # ================================================================
 
 def save_report(reports: List[Dict], stats: Dict, output_dir: str,
-                anomalies_df: Optional[pd.DataFrame] = None) -> str:
+                anomalies_df: Optional[pd.DataFrame] = None,
+                patterns: Optional[List[Dict]] = None,
+                orphans: Optional[List[Dict]] = None) -> str:
     today = date.today().isoformat()
     filepath = os.path.join(output_dir, f"daily_report_{today}.json")
     os.makedirs(output_dir, exist_ok=True)
@@ -258,6 +287,8 @@ def save_report(reports: List[Dict], stats: Dict, output_dir: str,
         "generated_at": datetime.now().isoformat(),
         "stats": stats,
         "reports": reports,
+        "patterns": patterns or [],
+        "orphan_count": len(orphans) if orphans else 0,
     }
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
@@ -359,7 +390,9 @@ def main():
     report_path = save_report(
         result["reports"], result["stats"],
         os.path.join(PROJECT_ROOT, "data", "output"),
-        anomalies_df=result.get("anomalies_df"))
+        anomalies_df=result.get("anomalies_df"),
+        patterns=result.get("patterns", []),
+        orphans=result.get("orphans", []))
 
     # ── 模拟飞书回复 ──
     if args.reply:
@@ -391,7 +424,9 @@ def main():
             print(f"未识别命令: {args.reply}")
 
     # ── 飞书推送 ──
-    feishu_ok = notify_feishu(lark_cfg, result["reports"], result["stats"], report_date)
+    feishu_ok = notify_feishu(lark_cfg, result["reports"], result["stats"], report_date,
+                              patterns=result.get("patterns"),
+                              orphans=result.get("orphans"))
 
     elapsed = time.time() - start_time
     logger.info(
