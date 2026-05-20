@@ -19,7 +19,7 @@ llm:
   judge:
     api_key: "sk-your-deepseek-api-key-here"  # 可和归因共用
     base_url: "https://api.deepseek.com"
-    model: "deepseek-v4-pro"                    # 默认 V4 Pro 评 V4 Flash
+    model: "deepseek-chat"                     # 评委推荐用 V3（结构化输出最稳定），也可换成任何模型
 
   # 图像识别（可选，用于图表/文档截图分析，留空跳过）
   vision:
