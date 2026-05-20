@@ -174,6 +174,7 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
         base_url=judge_cfg.get("base_url", "https://api.deepseek.com"),
     )
     judge_model = judge_cfg.get("model", "deepseek-chat")
+    judge_max_tokens = judge_cfg.get("max_tokens", 2048)
 
     scores = []
     for tc in anomaly_cases[:5]:  # 取样 5 条控制成本
@@ -206,7 +207,7 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
                 model=judge_model,
                 messages=[{"role": "user", "content": judge_prompt}],
                 temperature=0.1,
-                max_tokens=400,
+                max_tokens=judge_max_tokens,
             )
             judge_result = json.loads(resp.choices[0].message.content)
             judge_result["id"] = tc["id"]

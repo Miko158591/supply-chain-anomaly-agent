@@ -19,7 +19,8 @@ llm:
   judge:
     api_key: "sk-your-deepseek-api-key-here"  # 可和归因共用
     base_url: "https://api.deepseek.com"
-    model: "deepseek-chat"                     # 评委推荐用 V3（结构化输出最稳定），也可换成任何模型
+    model: "deepseek-v4-pro"                  # 评委模型（跨版本评归因模型）
+    max_tokens: 4096                          # V4 Pro 输出详细，低于 4096 会被截断
 
   # 图像识别（可选，用于图表/文档截图分析，留空跳过）
   vision:
