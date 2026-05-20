@@ -32,13 +32,22 @@ def print_report(report: dict, index: int):
 
     # 基本信息
     print(f"  异常ID:     {meta.get('anomaly_id', 'N/A')}")
+    data_sufficient = meta.get("data_sufficient", True)
+    if data_sufficient is False:
+        print(f"  状态:       [降级] 数据不足，跳过 LLM — 评分 {meta.get('sufficiency_score', '?')}/100")
+        skip_reasons = meta.get("skip_reasons", [])
+        for r in skip_reasons:
+            print(f"             → {r}")
     print(f"  模型:       {meta.get('model', 'N/A')}")
     print(f"  API 调用:   {meta.get('api_attempts', '?')} 次")
     print()
 
     # 摘要
     summary = report.get("summary", "（无）")
-    print(f"  摘要: {summary}")
+    if data_sufficient is False:
+        print(f"  摘要: {summary}")
+    else:
+        print(f"  摘要: {summary}")
     print()
 
     # 风险等级
@@ -161,40 +170,39 @@ def main():
     risks = [r.get("risk_level", "low") for r in success_reports]
     hyps_counts = [len(r.get("root_cause_hypotheses", [])) for r in success_reports]
     actions_counts = [len(r.get("recommended_actions", [])) for r in success_reports]
-    api_attempts = [r.get("_meta", {}).get("api_attempts", 1) for r in success_reports]
+    api_attempts = [r.get("_meta", {}).get("api_attempts", 0) for r in success_reports]
+    degraded = sum(1 for r in success_reports if r.get("_meta", {}).get("data_sufficient") is False)
+    llm_reports = [r for r in success_reports if r.get("_meta", {}).get("data_sufficient") is not False]
 
-    print(f"  平均置信度:    {sum(confidences)/len(confidences):.1%}")
-    print(f"  置信度范围:    [{min(confidences):.0%}, {max(confidences):.0%}]")
+    print(f"  LLM 归因:      {len(llm_reports)} 次")
+    print(f"  降级跳过:      {degraded} 次（数据不足，省了 API 调用）")
+    if len(llm_reports) > 0:
+        llm_confs = [r.get("confidence", 0) for r in llm_reports]
+        llm_apis = [r.get("_meta", {}).get("api_attempts", 1) for r in llm_reports]
+        print(f"  LLM 平均置信度: {sum(llm_confs)/len(llm_confs):.1%}")
+        print(f"  LLM 置信度范围: [{min(llm_confs):.0%}, {max(llm_confs):.0%}]")
+        print(f"  LLM 平均 API 调用: {sum(llm_apis)/len(llm_apis):.1f} 次")
     print(f"  风险分布:      high={risks.count('high')}, medium={risks.count('medium')}, low={risks.count('low')}")
-    print(f"  平均假设数:    {sum(hyps_counts)/len(hyps_counts):.1f}")
-    print(f"  平均建议数:    {sum(actions_counts)/len(actions_counts):.1f}")
-    print(f"  平均 API 调用: {sum(api_attempts)/len(api_attempts):.1f} 次")
 
-    # 幻觉检查
-    print(f"\n  幻觉检查:")
+    # 幻觉检查（仅对 LLM 归因的报告）
+    print(f"\n  幻觉检查 (仅 {len(llm_reports)} 份 LLM 报告):")
     hallucination_risks = 0
-    for r in success_reports:
+    for r in llm_reports:
         hyps = r.get("root_cause_hypotheses", [])
         for h in hyps:
-            evidence = h.get("evidence", [])
-            for e in evidence:
-                # 检查是否包含看起来像编造的数字（LLM 可能在 evidence 里编数字）
-                if e and any(char.isdigit() for char in e):
-                    # 有数字不一定是幻觉，但值得关注
-                    pass
             cause = h.get("cause", "")
-            # 简单启发式：如果 cause 中包含不在上下文中的数据点
             if cause and ("调查显示" in cause or "数据显示" in cause or "据统计" in cause):
                 hallucination_risks += 1
     print(f"    可疑表述数: {hallucination_risks}")
-    print(f"    提示: 人工复核时重点检查 evidence 中的数字是否来自上下文")
 
     print(f"\n  总结:")
-    if sum(confidences) / len(confidences) >= 0.7:
-        print(f"    [OK] 归因质量较好，DeepSeek 能够基于上下文给出合理的根因分析")
-    else:
-        print(f"    [~] 置信度偏低，可能需要更丰富的上下文数据或调整 prompt")
-    print(f"    [OK] 归因报告格式规范，JSON Schema 校验通过")
+    if degraded > 0:
+        print(f"    [OK] {degraded} 个异常因数据不足跳过 LLM——省了 API 费用，避免了硬编")
+    if len(llm_reports) > 0 and sum(r.get("confidence", 0) for r in llm_reports) / len(llm_reports) >= 0.7:
+        print(f"    [OK] LLM 归因质量较好，Few-Shot 有效果")
+    elif len(llm_reports) > 0:
+        print(f"    [~] LLM 置信度偏低，可能需要更丰富的上下文")
+    print(f"    [OK] 异常报告格式规范")
 
 
 if __name__ == "__main__":

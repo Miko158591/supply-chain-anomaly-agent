@@ -143,6 +143,8 @@ class AttributionAgent:
                 lookback_days: int = 7) -> Dict[str, Any]:
         """对单个异常事件进行归因分析。
 
+        先做数据充分性检查——数据不足时不浪费 API 调用，直接返回降级报告。
+
         Parameters
         ----------
         anomaly : dict
@@ -154,10 +156,19 @@ class AttributionAgent:
 
         Returns
         -------
-        dict — 归因报告（经校验的 JSON）。
+        dict — 归因报告（经校验的 JSON），或降级报告（data_sufficient=false）。
         """
         self._df = df
         self._ensure_daily_metrics()
+
+        # 0. 数据充分性检查 — 数据不够时不调 LLM
+        sufficiency = self.data_sufficiency_check(anomaly, lookback_days)
+        if not sufficiency["sufficient"]:
+            logger.info(
+                f"跳过 LLM 归因 [{anomaly.get('anomaly_id', '?')}]: "
+                f"{'; '.join(sufficiency['reasons'])}"
+            )
+            return self._build_degraded_report(anomaly, sufficiency)
 
         # 1. 构建上下文
         context = self.generate_context(anomaly, lookback_days)
@@ -186,6 +197,7 @@ class AttributionAgent:
             "anomaly_id": anomaly.get("anomaly_id", ""),
             "model": self.model,
             "api_attempts": attempts,
+            "data_sufficient": True,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
@@ -234,7 +246,11 @@ class AttributionAgent:
                     report = self.analyze(anomaly_dict, df, lookback_days)
                     sampled.append(report)
                     if verbose:
-                        print(f"ok (置信度={report.get('confidence', '?')})")
+                        meta = report.get("_meta", {})
+                        if meta.get("data_sufficient") is False:
+                            print(f"跳过 (数据不足: {'; '.join(meta.get('skip_reasons', []))})")
+                        else:
+                            print(f"ok (置信度={report.get('confidence', '?')})")
                 except Exception as e:
                     if verbose:
                         print(f"失败: {e}")
@@ -245,6 +261,13 @@ class AttributionAgent:
 
             if len(sampled) >= max_samples:
                 break
+
+        # 汇总统计
+        if verbose:
+            skipped = sum(1 for r in sampled if r.get("_meta", {}).get("data_sufficient") is False)
+            llm_calls = sum(1 for r in sampled if r.get("_meta", {}).get("data_sufficient") is True)
+            errors = sum(1 for r in sampled if "error" in r)
+            print(f"\n  汇总: {llm_calls} 次LLM调用, {skipped} 次跳过(数据不足), {errors} 次失败")
 
         return sampled
 
@@ -401,6 +424,167 @@ class AttributionAgent:
                 )
 
         return "\n".join(parts) if parts else "（无可用对比维度）"
+
+    # --------------------------------------------------------
+    # 1.5 数据充分性检查
+    # --------------------------------------------------------
+
+    def data_sufficiency_check(self, anomaly: Dict[str, Any],
+                                lookback_days: int = 7) -> Dict[str, Any]:
+        """判断异常事件的上下文数据是否足够支撑有意义的 LLM 归因。
+
+        数据不足时不浪费 API 调用，直接降级为"预警标记 + 人工排查"。
+        这也天然覆盖了 daily 聚合级异常——它们缺少单条订单的上下文。
+
+        检查维度：
+          1. 是否为日聚合级指标（无单条订单上下文）
+          2. 关键业务字段是否缺失
+          3. 历史数据是否足够
+          4. 对比数据是否匮乏
+
+        Returns
+        -------
+        dict — {"sufficient": bool, "reasons": [str], "score": int}
+        """
+        reasons: List[str] = []
+        score = 100  # 满分 100，逐项扣分
+
+        metric = anomaly.get("metric", "")
+        ctx = anomaly.get("context", {})
+
+        # (A) 日聚合级指标 — 天然缺少单点上下文，扣重分
+        DAILY_METRICS = {"daily_late_rate", "daily_order_count", "daily_avg_profit", "avg_delay"}
+        if metric in DAILY_METRICS:
+            reasons.append("日聚合级异常，无单条订单的详细信息（产品/品类/客户/运输方式）")
+            score -= 50
+
+        # (B) 关键业务字段缺失
+        key_fields = {
+            "Order Id": 15,
+            "Product Name": 15,
+            "Category Name": 10,
+            "Market": 5,
+            "Customer Segment": 5,
+        }
+        for field, penalty in key_fields.items():
+            if field not in ctx or ctx[field] is None:
+                reasons.append(f"缺少关键业务字段: {field}")
+                score -= penalty
+
+        # (C) 历史数据不足 — 日聚合指标数量不够
+        if self._daily_metrics is not None:
+            n_days = len(self._daily_metrics.get("late_rate", []))
+            if n_days < 7:
+                reasons.append(f"历史日聚合数据仅 {n_days} 天（需 ≥ 7 天）")
+                score -= 20
+        elif metric not in DAILY_METRICS:
+            # 非日聚合指标但无日聚合数据，小扣分
+            reasons.append("日聚合指标缓存未初始化")
+            score -= 5
+
+        # (D) 对比数据维度太少 — 几乎只有异常值本身
+        has_trend = ctx.get("z_score") is not None or ctx.get("iqr_multiple") is not None
+        has_dimension = any(ctx.get(f) for f in ["Category Name", "Market", "Shipping Mode"])
+        if not has_trend and not has_dimension:
+            reasons.append("上下文仅有异常值本身，无统计诊断信息也无业务维度信息")
+            score -= 20
+
+        # 判定
+        sufficient = score >= 50 and len(reasons) <= 3
+
+        return {
+            "sufficient": sufficient,
+            "reasons": reasons,
+            "score": score,
+        }
+
+    def _build_degraded_report(self, anomaly: Dict[str, Any],
+                                sufficiency: Dict[str, Any]) -> Dict[str, Any]:
+        """构建降级报告——数据不足时跳过 LLM，返回人工排查指引。
+
+        这不是"失败"，而是有意识的降级：与其让 LLM 在数据不足时硬编，
+        不如诚实地标记为"预警"并给出排查清单。
+        """
+        metric = anomaly.get("metric", "")
+        ctx = anomaly.get("context", {})
+
+        # 根据指标类型生成排查清单
+        checklist = []
+        if "delay" in metric.lower() or "late" in metric.lower():
+            checklist = [
+                "检查仓库出库记录，确认是否存在拣货/打包瓶颈",
+                "联系承运商获取运输轨迹，确认延误环节",
+                "检查是否为节假日或天气导致的区域性延迟",
+            ]
+        elif "profit" in metric.lower() or "benefit" in metric.lower():
+            checklist = [
+                "复核订单的全部费用明细（运费、折扣、佣金）",
+                "检查是否有折扣叠加或促销码误用",
+                "确认该 SKU 的采购成本是否有变动",
+            ]
+        elif "ratio" in metric.lower():
+            checklist = [
+                "核查该订单的售价是否被错误上调",
+                "确认成本数据是否完整（运费是否计入）",
+                "对比同品类其他订单的利润率",
+            ]
+        elif "total" in metric.lower() or "amount" in metric.lower():
+            checklist = [
+                "确认该订单是否为批量采购或 B2B 订单",
+                "检查是否有定价错误（如数量折扣未应用）",
+                "核实订单金额的构成（单价×数量是否正确）",
+            ]
+        else:
+            checklist = [
+                "人工查看该异常发生时的业务日志",
+                "与相关部门确认是否有已知的异常事件",
+                "补充数据后重新运行归因分析",
+            ]
+
+        # 找到相关的 SOP
+        sops = _match_sops(metric, anomaly.get("severity", "medium"), self.sop_full_text)
+        sop_ids = []
+        if sops:
+            import re
+            sop_ids = re.findall(r"SOP-\d+", sops)
+
+        return {
+            "root_cause_hypotheses": [
+                {
+                    "cause": "数据不足，无法自动推断根因。请按排查清单人工核查。",
+                    "probability": 0.0,
+                    "evidence": sufficiency["reasons"],
+                    "against": [],
+                }
+            ],
+            "recommended_actions": [
+                {
+                    "action": item,
+                    "priority": "high" if i == 0 else "medium",
+                    "expected_effect": "定位根因后可按对应 SOP 处置",
+                    "owner": "运营经理",
+                    "sop_ref": sop_ids[0] if sop_ids else None,
+                }
+                for i, item in enumerate(checklist[:3])
+            ],
+            "risk_level": anomaly.get("severity", "medium"),
+            "risk_rationale": (
+                f"异常指标 {metric} 出现偏离，但因数据不足（评分 {sufficiency['score']}/100）"
+                f"无法自动归因。建议按排查清单人工跟进。"
+            ),
+            "confidence": 0.0,
+            "confidence_note": f"数据充分性评分 {sufficiency['score']}/100，不满足 LLM 归因的最低要求（≥50）。",
+            "summary": f"[预警] {metric} 异常，数据不足无法自动归因，建议人工排查。",
+            "_meta": {
+                "anomaly_id": anomaly.get("anomaly_id", ""),
+                "model": "none (degraded — data insufficient)",
+                "api_attempts": 0,
+                "data_sufficient": False,
+                "skip_reasons": sufficiency["reasons"],
+                "sufficiency_score": sufficiency["score"],
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            },
+        }
 
     # --------------------------------------------------------
     # 2. LLM 调用
