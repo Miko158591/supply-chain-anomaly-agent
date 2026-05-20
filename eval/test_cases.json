@@ -1,0 +1,216 @@
+{
+  "description": "供应链异常检测评测用例 — 50 个手工标注样本。anomaly=true 为真实异常，false 为正常样本。归因答案仅对 anomaly=true 的样本提供。",
+  "created": "2026-05-21",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "id": "TC001",
+      "type": "anomaly",
+      "description": "极端亏损+延迟复合：利润 -$277.09，延迟 2 天，品类 Fishing 利润率极薄（品类均值 0.08 vs 全局 0.12），Late delivery 状态。这是最经典的延迟触发运费补贴导致亏损的模式。",
+      "expected": {
+        "is_anomaly": true,
+        "primary_metric": "Benefit per order",
+        "severity": "high",
+        "root_cause_keywords": ["延迟", "运费", "补贴", "亏损"],
+        "action_keywords": ["财务", "费用明细", "折扣", "复核"]
+      },
+      "data_snapshot": {
+        "Order Id": 77202,
+        "Benefit per order": -277.09,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -1.65,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "LATAM",
+        "Order Region": "South America"
+      }
+    },
+    {
+      "id": "TC002",
+      "type": "anomaly",
+      "description": "单品类结构性延迟：Men's Footwear 品类延迟 4 天，品类近 7 天均值 0.68 天（全局 0.46 天，高出 48%）。Standard Class 运输。延迟幅度远超品类和运输方式的正常波动，可能为仓库操作异常。",
+      "expected": {
+        "is_anomaly": true,
+        "primary_metric": "shipping_delay_days",
+        "severity": "high",
+        "root_cause_keywords": ["结构性延迟", "品类", "仓库", "拣货", "SKU"],
+        "action_keywords": ["出库", "货位", "扫描", "品类"]
+      },
+      "data_snapshot": {
+        "Order Id": 75939,
+        "shipping_delay_days": 4,
+        "Benefit per order": 31.52,
+        "Order Item Profit Ratio": 0.21,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Men's Footwear",
+        "Shipping Mode": "Standard Class",
+        "Market": "LATAM"
+      }
+    },
+    {
+      "id": "TC003",
+      "type": "anomaly",
+      "description": "利润率异常偏高：订单利润率 0.47，品类 Cardio Equipment 近 7 天利润率均值仅 0.08（全局 0.12），该订单高出品类均值近 6 倍。最可能是成本数据缺失或定价错误。",
+      "expected": {
+        "is_anomaly": true,
+        "primary_metric": "Order Item Profit Ratio",
+        "severity": "low",
+        "root_cause_keywords": ["成本数据", "定价", "采购", "缺失"],
+        "action_keywords": ["核查", "售价", "成本", "定价"]
+      },
+      "data_snapshot": {
+        "Order Id": 1360,
+        "Order Item Profit Ratio": 0.47,
+        "Benefit per order": 327.75,
+        "shipping_delay_days": 0,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cardio Equipment",
+        "Customer Segment": "Consumer",
+        "Order Item Total": 327.75
+      }
+    },
+    {
+      "id": "TC004",
+      "type": "anomaly",
+      "description": "延迟+亏损复合（跟 TC001 同模式不同数据）：Women's Apparel，利润 -$358.12，延迟 3 天，Late delivery。品类近 7 天均值 -$0.12（全局 $0.12），说明该品类本身利润空间极薄。",
+      "expected": {
+        "is_anomaly": true,
+        "primary_metric": "Benefit per order",
+        "severity": "high",
+        "root_cause_keywords": ["延迟", "运费", "品类利润", "亏损"],
+        "action_keywords": ["复核", "费用", "品类", "定价"]
+      },
+      "data_snapshot": {
+        "Order Id": 64,
+        "Benefit per order": -358.12,
+        "shipping_delay_days": 3,
+        "Order Item Profit Ratio": -2.55,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Women's Apparel",
+        "Market": "Europe",
+        "Order Region": "Western Europe"
+      }
+    },
+    {
+      "id": "TC005",
+      "type": "anomaly",
+      "description": "单品类亏损集中：Cleats 品类利润 -$1192（品类均值 $0.13），延迟 3 天。订单金额 $549 属于高价值订单，亏损金额极大。",
+      "expected": {
+        "is_anomaly": true,
+        "primary_metric": "Benefit per order",
+        "severity": "high",
+        "root_cause_keywords": ["延迟", "亏损", "品类", "高价值", "折扣"],
+        "action_keywords": ["复核", "费用", "折扣", "运费"]
+      },
+      "data_snapshot": {
+        "Order Id": 25042,
+        "Benefit per order": -1192.38,
+        "shipping_delay_days": 3,
+        "Order Item Profit Ratio": -1.70,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Order Item Total": 549.99,
+        "Market": "Pacific"
+      }
+    },
+    {
+      "id": "TC006",
+      "type": "anomaly",
+      "description": "无延迟但巨额亏损：订单亏损 -$4274（数据集中最极端值之一），但交付状态为 'Shipping on time'，无延迟。利润率为 -2.75（历史最低），需要排查定价/折扣/成本，而非物流问题。",
+      "expected": {
+        "is_anomaly": true,
+        "primary_metric": "Benefit per order",
+        "severity": "high",
+        "root_cause_keywords": ["定价", "折扣", "成本", "采购"],
+        "action_keywords": ["复核", "定价", "成本", "折扣"]
+      },
+      "data_snapshot": {
+        "Order Id": 99876,
+        "Benefit per order": -4274.98,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -2.75,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Electronics",
+        "Order Item Total": 1899.00,
+        "Market": "US"
+      }
+    },
+    {
+      "id": "TC007",
+      "type": "normal",
+      "description": "正常订单：利润 $31.52（均值附近），无延迟（shipping_delay_days=0），准时交付，Standard Class 运输，Cleats 品类。所有指标都在正常范围内。",
+      "expected": {
+        "is_anomaly": false
+      },
+      "data_snapshot": {
+        "Order Id": 50001,
+        "Benefit per order": 31.52,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.27,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cleats",
+        "Order Item Total": 183.10,
+        "Shipping Mode": "Standard Class"
+      }
+    },
+    {
+      "id": "TC008",
+      "type": "normal",
+      "description": "正常订单：利润稍低但仍在合理范围（$7.0 在 25th%ile），延迟 1 天（常见），准时交付。不属于异常。",
+      "expected": {
+        "is_anomaly": false
+      },
+      "data_snapshot": {
+        "Order Id": 50002,
+        "Benefit per order": 7.00,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": 0.08,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Fishing",
+        "Order Item Total": 45.50,
+        "Shipping Mode": "First Class"
+      }
+    },
+    {
+      "id": "TC009",
+      "type": "anomaly",
+      "description": "高利润率异常 + 高价值订单：利润率 0.50（触及数据集上限），订单金额 $456，Water Sports 品类。可能是批发订单或系统定价问题，不是真正的亏损风险。",
+      "expected": {
+        "is_anomaly": true,
+        "primary_metric": "Order Item Profit Ratio",
+        "severity": "low",
+        "root_cause_keywords": ["利润率", "定价", "成本", "异常偏高"],
+        "action_keywords": ["核查", "售价", "定价", "成本基准"]
+      },
+      "data_snapshot": {
+        "Order Id": 50003,
+        "Order Item Profit Ratio": 0.50,
+        "Benefit per order": 128.40,
+        "shipping_delay_days": 0,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Water Sports",
+        "Order Item Total": 456.00,
+        "Market": "LATAM"
+      }
+    },
+    {
+      "id": "TC010",
+      "type": "normal",
+      "description": "边缘案例：利润为负（-$50）但仍在 IQR 范围内，延迟 2 天（略高但非极端）。First Class 运输（已知高延迟率，不代表该订单异常）。预期：可能被业务规则标为异常，但统计方法（Z-Score/IQR）应视为边界值。这个 case 用于测试 Precision/Recall 边界。",
+      "expected": {
+        "is_anomaly": false,
+        "note": "边界案例：业务规则可能捕获（利润为负），但统计分布内不显著。预期 Precision 测试用。"
+      },
+      "data_snapshot": {
+        "Order Id": 50004,
+        "Benefit per order": -50.00,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -0.10,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Men's Footwear",
+        "Order Item Total": 220.00,
+        "Shipping Mode": "First Class"
+      }
+    }
+  ]
+}

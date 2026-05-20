@@ -1,0 +1,99 @@
+{
+  "date": "2026-05-21T04:28:08.843072",
+  "test_cases_count": 10,
+  "anomaly_cases": 7,
+  "normal_cases": 3,
+  "detection": {
+    "precision": 0.6667,
+    "recall": 0.5714,
+    "f1": 0.6154,
+    "tp": 4,
+    "fp": 2,
+    "tn": 1,
+    "fn": 3,
+    "details": [
+      {
+        "id": "TC001",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "极端亏损+延迟复合：利润 -$277.09，延迟 2 天，品类 Fishing 利润率极薄（品类均值 0.08 vs 全局 0.12），Late deliver"
+      },
+      {
+        "id": "TC002",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "单品类结构性延迟：Men's Footwear 品类延迟 4 天，品类近 7 天均值 0.68 天（全局 0.46 天，高出 48%）。Standard Cla"
+      },
+      {
+        "id": "TC003",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "利润率异常偏高：订单利润率 0.47，品类 Cardio Equipment 近 7 天利润率均值仅 0.08（全局 0.12），该订单高出品类均值近 6 倍。"
+      },
+      {
+        "id": "TC004",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "延迟+亏损复合（跟 TC001 同模式不同数据）：Women's Apparel，利润 -$358.12，延迟 3 天，Late delivery。品类近 7 "
+      },
+      {
+        "id": "TC005",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "单品类亏损集中：Cleats 品类利润 -$1192（品类均值 $0.13），延迟 3 天。订单金额 $549 属于高价值订单，亏损金额极大。"
+      },
+      {
+        "id": "TC006",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "无延迟但巨额亏损：订单亏损 -$4274（数据集中最极端值之一），但交付状态为 'Shipping on time'，无延迟。利润率为 -2.75（历史最低），"
+      },
+      {
+        "id": "TC007",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "正常订单：利润 $31.52（均值附近），无延迟（shipping_delay_days=0），准时交付，Standard Class 运输，Cleats 品类"
+      },
+      {
+        "id": "TC008",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "正常订单：利润稍低但仍在合理范围（$7.0 在 25th%ile），延迟 1 天（常见），准时交付。不属于异常。"
+      },
+      {
+        "id": "TC009",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "高利润率异常 + 高价值订单：利润率 0.50（触及数据集上限），订单金额 $456，Water Sports 品类。可能是批发订单或系统定价问题，不是真正的亏"
+      },
+      {
+        "id": "TC010",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "边缘案例：利润为负（-$50）但仍在 IQR 范围内，延迟 2 天（略高但非极端）。First Class 运输（已知高延迟率，不代表该订单异常）。预期：可能被"
+      }
+    ],
+    "total_anomalies_detected": 59585
+  },
+  "attribution": {
+    "score": null,
+    "skipped": true,
+    "reason": "--skip-llm flag"
+  },
+  "latency": {
+    "detection_seconds": 73.18,
+    "attribution_seconds_per_item": 22.3,
+    "total_seconds": 95.48,
+    "anomalies_per_second": 814.2
+  }
+}
