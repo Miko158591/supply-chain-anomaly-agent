@@ -176,7 +176,7 @@ Benefit per order: mean=22.0, std=104.4
 2. **OpenAI SDK 兼容**：`base_url` 改为 `api.deepseek.com` 即可切换，无需改代码。换模型只需改 `config.yaml` 中的 `model` 字段。
 3. **结构化输出稳定性**：经过评测（见 `eval/run_eval.py`），V4 Flash 在 `max_tokens=4096` 下 JSON 解析成功率达 100%（`max_tokens=2048` 时为 64%）。V3 为 95%。
 4. **表达多样性**：V4 Flash 比 V3 表现出更好的句式多样性（DeepSeek 评委评分 4/5 vs 2/5），归因结果读起来更自然。
-5. **跨版本评委**：评测时用 DeepSeek V3 当评委评 V4 Flash 的归因质量，跨模型版本避免同模型自评作弊。
+5. **跨模型评委**：评测时用独立配置的评委模型（默认 DeepSeek V4 Pro）评归因模型（V4 Flash）的输出。评委可通过 `config.yaml → llm.judge` 换成任何 OpenAI 兼容模型（GPT-4o/Claude 等），避免同模型自评作弊。
 
 ### 后果
 

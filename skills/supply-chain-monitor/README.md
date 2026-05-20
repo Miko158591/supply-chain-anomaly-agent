@@ -121,10 +121,20 @@ config.example.yaml         # 配置模板（可提交）
 
 ```yaml
 llm:
+  # 归因分析（主模型）
   deepseek:
-    model: "deepseek-v4-flash"    # 推荐 V4 Flash，4096 tokens
+    model: "deepseek-v4-flash"    # 推荐 V4 Flash，max_tokens 至少 4096
     max_tokens: 4096              # 重要：低于 4096 V4 Flash 会被截断
     temperature: 0.3
+
+  # 评测评委（跨模型避免同模型自评，可换成任何 OpenAI 兼容模型）
+  judge:
+    model: "deepseek-v4-pro"      # 默认 V4 Pro 评 V4 Flash
+    # 换成 GPT-4o 等只需改 model + base_url
+
+  # 图像识别（可选，用于未来图表分析，留空跳过）
+  vision:
+    model: "deepseek-v4-flash"
 
 notify:
   lark:

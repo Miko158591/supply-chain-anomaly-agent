@@ -163,13 +163,17 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
         df["Days for shipping (real)"] - df["Days for shipment (scheduled)"]
     )
 
-    # 用 DeepSeek V3 作为评委（跨模型版本，V3 评 V4 Flash，避免同模型自评）
+    # 评委模型（可在 config.yaml → llm.judge 中配置为任何 OpenAI 兼容模型）
     from openai import OpenAI
-    judge_cfg = config.get("llm", {}).get("deepseek", {})
+    judge_cfg = config.get("llm", {}).get("judge", {})
+    if not judge_cfg.get("api_key"):
+        # 兜底：用归因模型的 key
+        judge_cfg = config.get("llm", {}).get("deepseek", {})
     judge = OpenAI(
         api_key=judge_cfg.get("api_key", ""),
         base_url=judge_cfg.get("base_url", "https://api.deepseek.com"),
     )
+    judge_model = judge_cfg.get("model", "deepseek-chat")
 
     scores = []
     for tc in anomaly_cases[:5]:  # 取样 5 条控制成本
@@ -199,7 +203,7 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
             )
 
             resp = judge.chat.completions.create(
-                model=judge_cfg.get("model", "abab6.5s-chat"),
+                model=judge_model,
                 messages=[{"role": "user", "content": judge_prompt}],
                 temperature=0.1,
                 max_tokens=400,
@@ -219,7 +223,7 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
     )
 
     return {
-        "judge_model": config.get("llm", {}).get("deepseek", {}).get("model", "unknown"),
+        "judge_model": judge_model,
         "samples_evaluated": len(scores),
         "average_score": round(avg_overall, 2),
         "dimension_scores": {
