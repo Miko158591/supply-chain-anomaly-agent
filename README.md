@@ -37,6 +37,7 @@
   │   Excel 导出         │     │   + Excel 导出       │
   │   --export high      │     └─────────────────────┘
   └─────────────────────┘
+```
 
 数据流: CSV → AnomalyDetector → AttributionAgent(DeepSeek) → 飞书卡片 + Excel
 
