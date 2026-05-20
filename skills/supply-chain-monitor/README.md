@@ -8,23 +8,35 @@
 # 1. 日报模式：检测 + 归因 + 推送飞书
 python skills/supply-chain-monitor/monitor.py --mode daily --max 5
 
-# 2. 启动消息轮询（让机器人能识别群里的回复命令）
-python skills/supply-chain-monitor/feishu_poll.py --interval 10
+# 2. 启动 webhook 服务器（接收用户回复命令）
+python skills/supply-chain-monitor/feishu_webhook.py --port 8080
+
+# 3. 启动 ngrok 隧道（暴露公网 URL 给飞书）
+ngrok http 8080
 ```
+
+飞书开放平台 → 事件订阅 → 请求 URL 填 `{ngrok_url}/feishu/event`，订阅 `im.message.receive_v1`。
+
+## 飞书日报卡片
+
+推送的日报卡片含 **Top 5 高风险异常**，每条显示：
+
+- 订单号、风险等级、AI 置信率
+- 根因分析（Top 1 假设）
+- 处置建议
 
 ## 飞书交互命令
 
-日报推送后，在群里 @机器人 发送以下命令：
+在群里 @机器人 发送：
 
-| 命令 | 效果 | 示例 |
-|------|------|------|
-| `全部` | 列出今日所有已归因异常 | @机器人 全部 |
-| `1` ~ `20` | 查看对应编号异常的摘要（Layer 2） | @机器人 3 |
-| `详情` | 查看上一次查看的异常的完整报告（Layer 3） | @机器人 详情 |
-| `导出` | 提示 Excel 导出命令 | @机器人 导出 |
+| 命令 | 效果 |
+|------|------|
+| `全部` / `高风险` | 发送高风险异常 Excel 文件（15,602+ 条） |
+| `中风险` | 发送中风险异常 Excel 文件（32,109+ 条） |
 
-**消息轮询 (`feishu_poll.py`)** 负责接收这些命令并回复。需后台常驻运行。
-前置条件：飞书应用已开通 `im:message.group_msg` 权限。
+Excel 含：订单号、品类、产品名、检测指标、异常值、风险等级、检测方法、区域、市场、运输方式、交付状态，以及 AI 归因列（置信度、根因、建议、负责人）。
+
+> 备选方案：`feishu_poll.py` API 拉取模式（无需 tunnel，但需 `im:message.group_msg` 权限）。
 
 ## 手动测试
 

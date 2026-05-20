@@ -260,7 +260,59 @@ NaN 与任何值比较都返回 False，突变永远检测不到。
 
 ## 当前运行状态
 
-- `feishu_poll.py` 后台常驻运行，10 秒间隔轮询
-- 启动方式：`python skills/supply-chain-monitor/feishu_poll.py --interval 10`
-- 飞书应用权限：`im:message.group_msg` 已开通
-- `feishu_webhook.py` 保留备用，但不再使用（需 tunnel）
+- `feishu_webhook.py` 为最终方案：Flask 服务器接收飞书事件回调
+- ngrok 隧道暴露公网：`https://deserve-skintight-borrowing.ngrok-free.dev`
+- 飞书回调 URL：`{ngrok_url}/feishu/event`
+- 启动：`python skills/supply-chain-monitor/feishu_webhook.py --port 8080` + ngrok http 8080
+- `feishu_poll.py` 备用方案（API 拉取，无需 tunnel）
+
+---
+
+# 2026-05-21 — Excel 全量导出 + 交互优化
+
+## 完成的工作
+
+### 1. Excel 包含全部高风险异常（15,602 条）
+- `save_report()` 同时保存 `anomalies_full_{date}.csv`（全部异常检测结果，~59K 条）
+- `generate_excel()` 优先从 CSV 读取全量数据，再按订单号匹配合并 LLM 归因信息
+- "全部"/"高风险" Excel 现含 15,602 条 15 列：订单号、品类、产品名、检测指标、异常值、风险等级、检测方法、区域、市场、运输方式、交付状态 + AI 置信度/根因/建议/负责人（归因过的才有）
+- 归因列大部分为空（只有 50 条 LLM 归因过的有值），不消耗额外 token
+
+### 2. 日报 L1 卡片格式最终版
+- Top 5 高风险，每条含：订单号 + 风险等级 + 置信率 + 原因 + 建议
+- 信息完整不截断，一次看全
+- 交互命令："全部"/"高风险"→ Excel 文件，"中风险"→ Excel 文件
+
+### 3. 异步处理修复重复回复
+- 飞书事件 3 秒超时：webhook 先回 200，再后台线程处理 + 回复
+- 避免同步发送耗时过长导致飞书重发事件
+
+### 4. 关闭每日 8 点定时调度
+- config.json schedule 清空，改为手动触发
+- 原因：DataCo 为静态历史数据集，每日内容相同
+
+### 5. Git 代理配置
+- `git config http.proxy http://127.0.0.1:7892`（VPN 端口）
+
+## 关键 Bug 修复
+
+### Bug 5：f-string 转义导致 SyntaxError
+`f\"{...}\"` 在 Edit 工具中被错误转义，改为 `f"{...}"`。
+
+### Bug 6：8080 端口多进程冲突
+多次重启 webhook 未杀旧进程 → `netstat -ano | findstr ":8080"` 定位 → 全杀重启。
+
+### Bug 7：异常 CSV 列名不匹配
+异常检测输出列为 `['anomaly_id', 'timestamp', 'metric', 'value', 'expected_range', 'severity', 'detection_method', 'context']`，订单号等在 `context` 字典内。修正 `save_report` 展开 context 字段。
+
+### Bug 8：Webhook 进程使用过期代码
+代码修改后未重启 webhook → Excel 输出为旧格式。确认后再重启。
+
+## 架构变化（最终版）
+
+```
+CSV → AnomalyDetector → AttributionAgent(DeepSeek) → 日报卡片 (L1 Top5)
+                                    ↓                      ↓
+                           save_report(JSON + CSV)   feishu_webhook.py ← ngrok
+                                    ↓                      ↓
+                          generate_excel()            @机器人 "全部" → Excel
