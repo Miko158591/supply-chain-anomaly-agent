@@ -41,7 +41,7 @@ anomaly:
     window: 7                                   # 移动平均窗口（天）
     deviation_factor: 2.0                       # 偏离倍数（日度指标波动小，2.0 平衡误报与漏报）
   iqr:
-    multiplier: 1.5                             # IQR 乘数（标准值 1.5，适合偏态分布如利润和金额）
+    multiplier: 2.0                             # IQR 乘数（平衡 Precision/Recall，k=1.5 偏宽 → 误报多，k=3.0 偏严 → 漏检多）
 
   # 综合判定：至少 2 种方法标为异常才确认（降低误报）
   consensus_min: 2

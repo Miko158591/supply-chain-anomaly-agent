@@ -150,6 +150,8 @@ class AnomalyDetector:
             z = float(z_scores.iloc[pos])
             val = float(clean.iloc[pos])
             ts = str(clean.index[pos])
+            deviation_pct = abs((val - mean) / mean * 100) if mean != 0 else float("inf")
+            direction = "偏高" if val > mean else "偏低"
             results.append(
                 _make_anomaly(
                     timestamp=ts,
@@ -159,7 +161,15 @@ class AnomalyDetector:
                     upper=mean + threshold * std,
                     method="zscore",
                     severity=_severity_from_z(z, threshold),
-                    context={"z_score": round(z, 4), "mean": round(float(mean), 2), "std": round(float(std), 2)},
+                    context={
+                        "z_score": round(z, 4),
+                        "mean": round(float(mean), 2),
+                        "std": round(float(std), 2),
+                        "deviation_pct": round(deviation_pct, 1),
+                        "direction": direction,
+                        "description": f"偏离均值 {deviation_pct:.1f}%（{direction}），"
+                                       f"z={z:.2f}（阈值 {threshold}）",
+                    },
                 )
             )
         return results
@@ -297,6 +307,14 @@ class AnomalyDetector:
         for pos in anomaly_positions:
             val = float(clean.iloc[pos])
             ts = str(clean.index[pos])
+            # 计算相对于 IQR 的偏离倍数
+            median = clean.quantile(0.5)
+            if val < q1:
+                iqr_multiple = abs(val - q1) / iqr if iqr > 0 else 0
+                direction = "偏低"
+            else:
+                iqr_multiple = abs(val - q3) / iqr if iqr > 0 else 0
+                direction = "偏高"
             results.append(
                 _make_anomaly(
                     timestamp=ts,
@@ -306,7 +324,16 @@ class AnomalyDetector:
                     upper=upper,
                     method="iqr",
                     severity=_severity_from_iqr(val, q1, q3, iqr, k),
-                    context={"q1": round(float(q1), 2), "q3": round(float(q3), 2), "iqr": round(float(iqr), 2)},
+                    context={
+                        "q1": round(float(q1), 2),
+                        "q3": round(float(q3), 2),
+                        "iqr": round(float(iqr), 2),
+                        "median": round(float(median), 2),
+                        "iqr_multiple": round(iqr_multiple, 2),
+                        "direction": direction,
+                        "description": f"超出{'上' if val > q3 else '下'}界 {iqr_multiple:.1f} 倍 IQR"
+                                       f"（{'高于' if val > q3 else '低于'}{'Q3' if val > q3 else 'Q1'}）",
+                    },
                 )
             )
         return results
@@ -515,9 +542,9 @@ class AnomalyDetector:
 
         # (B) 统计方法 — 对全量记录的分布做 IQR + Z-Score
         # 用整数 index 避免重复时间戳导致的 .loc 问题
+        # 注意: shipping_delay_days 是离散分布（仅 -2~4），IQR/Z-Score 不适用，由业务规则覆盖
         record_metrics = {
             "Benefit per order": df["Benefit per order"].reset_index(drop=True),
-            "shipping_delay_days": df["shipping_delay_days"].reset_index(drop=True),
             "Order Item Profit Ratio": df["Order Item Profit Ratio"].reset_index(drop=True),
             "Order Item Total": df["Order Item Total"].reset_index(drop=True),
         }
