@@ -59,6 +59,15 @@ anomaly:
     high_profit_ratio: 0.45                    # 利润率 > 45%（约 90th%ile）
     high_value_threshold: 500                  # 单笔金额 > $500（约 99.6th%ile）
 
+# ---- 异常模式聚类 ----
+cluster:
+  min_size: 2                    # 最少多少条异常算一个模式
+  method: "rule_based"           # rule_based（基于规则）| distance_based（基于距离）
+  enabled_patterns:
+    - delay_loss_composite       # 延迟+亏损复合
+    - category_concentration     # 单品类集中异常
+    - region_concentration       # 单区域异常集中
+
 # ---- 数据配置 ----
 data:
   raw_dir: "data/raw"                           # 原始 CSV 文件目录
