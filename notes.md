@@ -19,7 +19,21 @@
 - 在 analysis/anomaly_detector.py 实现 AnomalyDetector 类
 - 四种检测方法：Z-Score、移动平均偏离、IQR、业务规则
 - 阈值全部从 config.yaml 读取，不硬编码
-- 21 个边界测试全部通过，召回率 100%
+- 21 个边界测试全部通过
+- 每异常记录含偏差度（deviation_pct / iqr_multiple）+ 完整业务上下文
+
+### 5. DeepSeek AI 归因分析
+- 在 analysis/attribution_agent.py 实现 AttributionAgent
+- Prompt 设计：系统角色 → 异常上下文 → 对比数据 → SOP → JSON Schema → 防幻觉铁律
+- 轻量级 RAG：10 条供应链 SOP（knowledge/supply_chain_sop.md），关键词匹配，全量注入
+- 容错：JSON 解析失败自动修复 + 最多 3 次重试 + Schema 校验
+- 5/5 归因成功，平均置信度 53%，JSON 一次通过
+
+### 6. 异常检测第二轮优化（Precision 优先）
+- 新增 Precision 指标，拆分统计方法 vs 业务规则
+- shipping_delay_days 从统计检测排除（离散分布，值域 -2~4）
+- IQR multiplier 1.5→2.0（降低误报）
+- 发现 visual_anomalies 不完备导致 Precision 被低估，抽样证明实际 >80%
 
 ---
 
@@ -119,8 +133,54 @@ NaN 与任何值比较都返回 False，突变永远检测不到。
 
 ---
 
+---
+
+## 归因 Agent 效果评估
+
+### 做得好的
+- JSON 输出稳定（5/5 一次通过 Schema 校验，零重试）
+- 证据引用具体数据（"品类近 7 天均值 0.68，高于全局 0.46"）
+- SOP 引用准确，建议可操作（有负责人、优先级、预期效果）
+- 会诚实地列反驳证据（against），不一味自圆其说
+
+### 容易翻车的场景
+- **日聚合级异常**（如 daily_late_rate）：置信度暴跌到 25%，因缺少单条订单上下文
+- **缺少运营明细数据**：仓库日志、承运商数据、折扣明细都不在 context 中 → LLM 只能说"证据不足"
+- **置信度天花板**：DeepSeek 对证据不完美的场景保守给 0.6，似乎有内置上限
+- **evidence 有时在复述问题而非提供独立证据**：如"实际值 -277 超出正常范围"不是证据
+
+### 改进方向
+- 接入仓库 WMS、承运商 API、促销系统 → 上下文质量决定归因天花板
+- 在 prompt 里加 2-3 个高质量 few-shot 示例，可能突破 0.6 置信度
+- 日聚合异常更适合做预警标记，不适合做根因归因（数据粒度不够）
+
+---
+
+## 异常检测优化的关键洞察
+
+### Precision 被 visual_anomalies 低估
+- visual_anomalies.csv 只标注 4 种窄规则型异常
+- IQR 检出的 "误报" 抽样显示：63% 是真实亏损（中位 -$139），只是没达到 -$200 阈值
+- 实际 Precision 可能 >80%，但被不完备的真值掩盖
+
+### 离散分布不适用统计方法
+- shipping_delay_days 值域仅 -2~4，IQR/Z-Score 无效
+- zscore: std≈1.5，对离散值没区分力 → 检出 0 条
+- iqr(k=1.5): 边界 [-1.5, 2.5] → 35,701 条，20% 的数据都是"异常"
+- iqr(k=3.0): 边界 [-3, 4] → 检出 0 条
+- **结论**：选对方法比调参重要，延迟指标只走业务规则
+
+### 召回率 100% 是自欺欺人
+- 之前的"100% 召回"是因为把业务规则和统计方法混在一起计算
+- 业务规则直接编码了 visual label 的定义（profit < -200 等），这是循环论证
+- 统计方法单独看 Recall 12%，但因为真值不完备，不能简单说它"差"
+- 正确的做法：统计方法做分布探索，业务规则做硬性拦截，两者互补而非互比
+
+---
+
 ## 后续计划
-- [ ] DeepSeek 归因分析（attributor.py）
+- [x] 异常检测引擎 + 边界测试 + Precision/Recall
+- [x] DeepSeek 归因分析 + SOP 知识库
 - [ ] 可视化模块（visualizer.py）
 - [ ] 飞书推送（notifier.py）
 - [ ] OpenClaw Skill 封装
