@@ -253,6 +253,10 @@ class AttributionAgent:
                 print(f"  分析: [{anomaly_dict['severity']}] {anomaly_dict['metric']} = {anomaly_dict['value']}  ...", end=" ")
             try:
                 report = self.analyze(anomaly_dict, df, lookback_days)
+                # 注入原始异常的业务上下文（Order Id, Product Name 等）
+                orig_ctx = anomaly_dict.get("context", {})
+                if isinstance(orig_ctx, dict) and orig_ctx:
+                    report.setdefault("_meta", {})["anomaly_context"] = orig_ctx
                 sampled.append(report)
                 if verbose:
                     meta = report.get("_meta", {})

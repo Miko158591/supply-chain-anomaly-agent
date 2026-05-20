@@ -26,7 +26,7 @@ import pandas as pd
 import requests
 import yaml
 
-# 确保项目根目录在 sys.path 中
+# Skill 和项目根目录
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_JSON = os.path.join(SKILL_DIR, "config.json")
 try:
@@ -41,6 +41,11 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from analysis.anomaly_detector import AnomalyDetector
 from analysis.attribution_agent import AttributionAgent
+
+# Skill 内部模块（SKILL_DIR 已在上面定义）
+sys.path.insert(0, SKILL_DIR)
+from message_formatter import format_daily_summary
+from session_store import handle_message as handle_reply
 
 os.makedirs(os.path.join(PROJECT_ROOT, "logs"), exist_ok=True)
 logging.basicConfig(
@@ -143,91 +148,8 @@ def smart_truncate(text: str, max_len: int = 200) -> str:
 
 
 def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dict[str, Any]:
-    """构建飞书摘要卡片 — 每条异常完整的句子描述，不截断字符。"""
-    llm_reports = [r for r in reports
-                   if "error" not in r and r.get("_meta", {}).get("data_sufficient") is not False]
-    degraded_reports = [r for r in reports
-                        if "error" not in r and r.get("_meta", {}).get("data_sufficient") is False]
-
-    n_total = stats["total_anomalies"]
-    n_llm = len(llm_reports)
-    n_degraded = len(degraded_reports)
-    n_high = stats["severity_counts"].get("high", 0)
-
-    elements: List[Dict] = []
-
-    # 概览
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": (
-                f"**检出 {n_total:,} 个异常**  |  "
-                f"高风险 {n_high:,}  |  "
-                f"AI 归因 {n_llm}  |  "
-                f"降级 {n_degraded}\n"
-                f"全部导出: `python monitor.py --export high`"
-            ),
-        },
-    })
-    elements.append({"tag": "hr"})
-
-    # 每条异常摘要
-    has_medium_in_mix = False
-    for i, report in enumerate(llm_reports[:5]):
-        risk = report.get("risk_level", "medium")
-        if risk != "high":
-            has_medium_in_mix = True
-        diversity_note = " [多样性]" if risk != "high" else ""
-
-        # 核心摘要（智能截断，在句号处断）
-        summary = smart_truncate(report.get("summary", ""), 150)
-        conf = report.get("confidence", 0)
-        actions = report.get("recommended_actions", [])
-        top_action = smart_truncate(actions[0]["action"], 80) if actions else "人工排查"
-
-        # 主摘要行
-        elements.append({
-            "tag": "div",
-            "text": {
-                "tag": "lark_md",
-                "content": (
-                    f"**[{risk.upper()}{diversity_note}] {summary}**\n"
-                    f"置信度 {conf:.0%}  |  {top_action}"
-                ),
-            },
-        })
-
-        # 子要点：top 1 根因
-        hyps = report.get("root_cause_hypotheses", [])
-        if hyps:
-            top_cause = smart_truncate(hyps[0].get("cause", ""), 120)
-            elements.append({
-                "tag": "div",
-                "text": {
-                    "tag": "lark_md",
-                    "content": f"  {top_cause}",
-                },
-            })
-
-        elements.append({"tag": "hr"})
-
-    # 页脚
-    footer_parts = []
-    if degraded_reports:
-        footer_parts.append(f"{len(degraded_reports)} 个异常因数据不足跳过归因")
-    if has_medium_in_mix:
-        footer_parts.append("中风险为多样性样本")
-    footer_parts.append(f"完整报告: data/output/daily_report_{report_date}.json")
-    footer_parts.append(f"{report_date} | Supply Chain Monitor")
-
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": "\n".join(footer_parts),
-        },
-    })
+    """构建飞书日报卡片 — Layer 1 汇总格式，不超过 500 字。"""
+    content = format_daily_summary(stats, reports, report_date)
 
     return {
         "msg_type": "interactive",
@@ -235,9 +157,12 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
             "header": {
                 "title": {"tag": "plain_text",
                           "content": f"供应链异常日报 | {report_date}"},
-                "template": "red" if n_high > n_total * 0.3 else "blue",
+                "template": "blue",
             },
-            "elements": elements,
+            "elements": [{
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": content},
+            }],
         },
     }
 
@@ -352,6 +277,8 @@ def main():
     parser.add_argument("--date", type=str, default=None)
     parser.add_argument("--export", type=str, default=None,
                         choices=["high", "medium", "all"])
+    parser.add_argument("--reply", type=str, default=None,
+                        help="模拟飞书回复: 数字(1-5)/详情/全部/导出")
     args = parser.parse_args()
 
     config_path = os.path.join(PROJECT_ROOT, "config.yaml")
@@ -408,7 +335,36 @@ def main():
         result["reports"], result["stats"],
         os.path.join(PROJECT_ROOT, "data", "output"))
 
-    # 飞书推送
+    # ── 模拟飞书回复 ──
+    if args.reply:
+        # 从最近一次日报 JSON 读取已归因的报告
+        saved_path = os.path.join(PROJECT_ROOT, "data", "output",
+                                  f"daily_report_{report_date}.json")
+        if not os.path.exists(saved_path):
+            print(f"错误: 日报文件不存在 {saved_path}，请先运行 --mode daily")
+            sys.exit(1)
+
+        with open(saved_path, "r", encoding="utf-8") as f:
+            saved_data = json.load(f)
+        saved_reports = saved_data.get("reports", [])
+        saved_stats = saved_data.get("stats", {})
+
+        reply_text = handle_reply(
+            chat_id="mock-chat",
+            user_id="mock-user",
+            text=args.reply,
+            reports=saved_reports,
+            stats=saved_stats,
+            report_date=report_date,
+        )
+        if reply_text:
+            print("\n" + "=" * 50)
+            print(reply_text)
+            print("=" * 50)
+        else:
+            print(f"未识别命令: {args.reply}")
+
+    # ── 飞书推送 ──
     feishu_ok = notify_feishu(lark_cfg, result["reports"], result["stats"], report_date)
 
     elapsed = time.time() - start_time
