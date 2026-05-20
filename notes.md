@@ -363,3 +363,54 @@ CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek) → 
 - 延迟+亏损复合最初按 "每个订单一个模式" 设计 → 产生 269 个模式
 - 改为聚合模式：所有同类订单归入同一模式，只标注订单数和涉及品类
 - 日报卡片只需 5-8 个模式，太多反而没有信息量
+
+### 判断 9：V4 Flash + 4096 tokens > V3 + 2048 tokens
+- V4 Flash 输出质量（证据具体性、推理深度）高于 V3
+- 但 V4 Flash 输出也更冗长，2048 token 上限导致 36% 的回复被截断
+- 提到 4096 后成功率 100%，同时保留了 V4 的高质量输出
+- max_tokens 应根据模型特点调整，不是越小越好
+
+---
+
+# 2026-05-21 — V4 Flash 适配 + 飞书交互完善
+
+## 完成的工作
+
+### 1. V4 Flash 适配
+- 根因：`max_tokens=2048` 导致 V4 Flash 的详细输出被截断
+- 18/50 的失败全是 JSON 截断（不是质量问题，是 token 不够）
+- 修复：`max_tokens` 提到 4096 → 成功率 100%
+- 模型对比结论：
+  - `deepseek-chat` (V3): ~95%, ~10s/条, 输出简洁
+  - `deepseek-v4-flash`: 100%, ~17s/条, 输出更详细（推荐）
+  - `deepseek-v4-pro`: ~40%, ~70s/条, 太慢不适合批处理
+
+### 2. 飞书交互完善
+- 新命令 "日报"：@机器人 日报 → 输出完整日报卡片
+- 双重事件去重：event_id + message_id，60 秒 TTL
+- ThreadPoolExecutor 异步处理，避免飞书 3 秒超时
+- 命令去重：同一消息 30 秒内不重复处理
+
+### 3. 飞书应用迁移
+- 旧应用 `cli_aa89b3cb89b85cc7` → 新应用 `cli_aa87430bdfb8dcc3`
+- 拆分为两个机器人：日常 chat + 供应链监控
+- 旧应用事件订阅 URL 已清空，不影响日常使用
+
+### 4. 项目配置优化
+- 默认归因数量：5 → 15 条
+- 定时调度已关闭（静态数据集改为手动触发）
+- Git 代理配置：`http.proxy=http://127.0.0.1:7892`
+
+## 当前命令列表
+
+| 命令 | 效果 |
+|------|------|
+| 日报 | 输出日报卡片（异常模式 + Top 5） |
+| 全部 / 高风险 | 高风险 Excel 文件（15,602 条） |
+| 中风险 | 中风险 Excel 文件（32,109 条） |
+
+## 当前运行状态
+
+- Webhook + ngrok 后台运行中
+- 模型：deepseek-v4-flash，max_tokens=4096
+- 每天手动触发：`python skills/supply-chain-monitor/monitor.py --mode daily`

@@ -1,189 +1,236 @@
 # Supply Chain Monitor Skill
 
-供应链异常智能监控 OpenClaw Skill。每天自动跑，异常检测 → AI 归因 → 飞书推送 + 交互回复。
+供应链异常智能监控系统。异常检测（Z-Score + IQR + 业务规则）→ 模式聚类 → DeepSeek AI 归因 → 飞书推送 + 交互回复。
 
-## 快速开始
+## 架构
+
+```
+CSV → AnomalyDetector → PatternClusterer → AttributionAgent (DeepSeek V4 Flash)
+  → 日报卡片（异常模式 + Top 5 高风险）
+  → Excel 导出（15,602 条高风险，含 AI 归因）
+  ← feishu_webhook.py + ngrok — @机器人 交互命令
+```
+
+## 快速上手
+
+### 1. 环境准备
 
 ```bash
-# 1. 日报模式：检测 + 归因 + 推送飞书
-python skills/supply-chain-monitor/monitor.py --mode daily --max 5
+pip install -r requirements.txt
+cp config.example.yaml config.yaml  # 填入 DeepSeek API Key + 飞书 app_id/app_secret
+```
 
-# 2. 启动 webhook 服务器（接收用户回复命令）
+### 2. 跑一次日报
+
+```bash
+# 检测 + 归因 + 推送飞书（默认 15 条归因）
+python skills/supply-chain-monitor/monitor.py --mode daily
+
+# 只看不推
+python skills/supply-chain-monitor/monitor.py --mode daily --no-notify
+
+# 快速检测（不调 LLM，30 秒跑完）
+python skills/supply-chain-monitor/monitor.py --mode quick
+```
+
+### 3. 启动交互回复（让机器人识别群里 @它 的命令）
+
+需要两个终端：
+
+**终端 A** — 启动 webhook：
+```bash
 python skills/supply-chain-monitor/feishu_webhook.py --port 8080
+```
 
-# 3. 启动 ngrok 隧道（暴露公网 URL 给飞书）
+**终端 B** — 启动 ngrok 隧道：
+```bash
 ngrok http 8080
 ```
 
-飞书开放平台 → 事件订阅 → 请求 URL 填 `{ngrok_url}/feishu/event`，订阅 `im.message.receive_v1`。
+然后去飞书开放平台 → 应用 → 事件订阅：
+- 请求 URL：`https://{ngrok_url}/feishu/event`
+- 订阅事件：`im.message.receive_v1`
 
-## 飞书日报卡片
+### 4. 飞书交互命令
 
-推送的日报卡片含两层信息：
-
-### 异常模式（新增）
-自动识别异常背后的模式（如"延迟+亏损复合"、"品类集中异常"），
-展示每种模式涉及的订单数、涉及品类、样本量警示。
-
-### Top 5 高风险异常
-每条显示：
-- 订单号、风险等级、AI 置信率
-- 根因分析（Top 1 假设）
-- 处置建议
-
-聚类逻辑见 `analysis/pattern_clusterer.py`，模式定义见 `config.yaml` → `cluster`。
-
-## 飞书交互命令
-
-在群里 @机器人 发送：
+在群里 @机器人：
 
 | 命令 | 效果 |
 |------|------|
-| `全部` / `高风险` | 发送高风险异常 Excel 文件（15,602+ 条） |
-| `中风险` | 发送中风险异常 Excel 文件（32,109+ 条） |
+| `日报` | 输出日报卡片（异常模式 + Top 5 高风险） |
+| `全部` / `高风险` | Excel 文件（15,602 条高风险，含 AI 归因列） |
+| `中风险` | Excel 文件（32,109 条中风险） |
 
-Excel 含：订单号、品类、产品名、检测指标、异常值、风险等级、检测方法、区域、市场、运输方式、交付状态，以及 AI 归因列（置信度、根因、建议、负责人）。
+## 飞书日报卡片格式
 
-> 备选方案：`feishu_poll.py` API 拉取模式（无需 tunnel，但需 `im:message.group_msg` 权限）。
+```
+供应链异常日报 | 2026-05-21
 
-## 手动测试
+扫描 180,519 笔 | 高风险 15,602 | 中风险 32,109 | 低风险 11,874 | AI 归因 15
 
-```bash
-# 快速模式：只检测，不归因，不推送（30 秒跑完）
-python skills/supply-chain-monitor/monitor.py --mode quick
+【异常模式 · 发现 6 个】
 
-# 日报模式：检测 + 归因 top-5 + 推送飞书
-python skills/supply-chain-monitor/monitor.py --mode daily --max 5
+🔴 延迟+亏损复合（269 单）
+> 涉及订单: #33, #35, #46, #64, #15
+> 269 个订单同时出现交付延迟和财务亏损
 
-# 全量模式：检测 + 归因 top-10
-python skills/supply-chain-monitor/monitor.py --mode full --max 10
+🟡 品类集中 — Fishing（1,653 单）
+🟡 品类集中 — Cleats（1,183 单）
+...
 
-# 指定日期 + 不看飞书
-python skills/supply-chain-monitor/monitor.py --date 2017-03-04 --no-notify
+【高风险异常 Top 5】
 
-# 回溯 3 天
-python skills/supply-chain-monitor/monitor.py --lookback 3
+🔴 #1 订单 33 | HIGH | 置信度 60%
+> 原因: 该订单严重亏损源于延迟交付触发的额外成本...
+> 建议: 财务分析师复核订单全部费用明细...
+
+（共 5 条）
 ```
 
-## 安装到 AutoClaw
+## 项目结构
 
-### 方式 1：OpenClaw Skills 管理器
+```
+skills/supply-chain-monitor/
+├── monitor.py              # 主入口：检测 → 归因 → 推送
+├── feishu_webhook.py       # Webhook 服务器：接收飞书回调、处理命令
+├── feishu_poll.py          # 备选方案：API 拉取模式（无需 tunnel）
+├── message_formatter.py    # 消息格式化（日报卡片 + 交互回复）
+├── session_store.py        # SQLite 会话状态 + 命令路由
+├── config.json             # Skill 配置（归因数量、调度等）
+├── SKILL.md                # OpenClaw Skill 元数据
+└── README.md               # 本文档
 
-```bash
-# 在 OpenClaw 项目目录下执行
-openclaw skills install /path/to/supply-chain-anomaly-agent/skills/supply-chain-monitor
+analysis/
+├── anomaly_detector.py     # 异常检测引擎（Z-Score + IQR + MA + 业务规则）
+├── attribution_agent.py    # DeepSeek AI 归因 Agent（JSON Schema + 重试）
+├── pattern_clusterer.py    # 异常模式聚类（规则法：延迟+亏损/品类/区域）
+
+prompts/
+├── attribution_prompt.py   # System prompt + Few-Shot + JSON Schema
+
+knowledge/
+├── supply_chain_sop.md     # 10 条供应链异常处置 SOP
+
+config.yaml                 # 实时配置（API key、阈值、聚类参数，不提交到 Git）
+config.example.yaml         # 配置模板（可提交）
 ```
 
-### 方式 2：手动配置
+## 配置说明
 
-在 OpenClaw 的 `openclaw.json` 中注册 skill：
+### config.yaml 核心配置
+
+```yaml
+llm:
+  deepseek:
+    model: "deepseek-v4-flash"    # 推荐 V4 Flash，4096 tokens
+    max_tokens: 4096              # 重要：低于 4096 V4 Flash 会被截断
+    temperature: 0.3
+
+notify:
+  lark:
+    app_id: "cli_xxx"            # 飞书应用 App ID
+    app_secret: "xxx"            # 飞书应用 Secret
+    chat_id: "oc_xxx"            # 目标群聊 ID
+    enable_push: true
+
+anomaly:
+  zscore:
+    threshold: 2.5               # Z-Score 阈值
+  consensus_min: 2               # 至少 2 种方法标异常才确认
+
+cluster:
+  min_size: 2                    # 最少几条异常算一个模式
+  method: "rule_based"           # rule_based（规则）| distance_based（距离）
+  enabled_patterns:
+    - delay_loss_composite       # 延迟+亏损复合
+    - category_concentration     # 品类集中异常
+    - region_concentration       # 区域集中异常
+```
+
+### 飞书应用权限
+
+应用需要以下权限：
+- `im:message` — 读取消息
+- `im:message:send_as_bot` — 发送消息（文本 + 卡片 + 文件）
+- `im:file` — 上传/发送文件（Excel）
+
+### 模型选择
+
+| 模型 | 成功率 | 速度 | 推荐场景 |
+|------|--------|------|----------|
+| `deepseek-v4-flash` | 100%（4096 tokens） | ~17s/条 | 日常使用 |
+| `deepseek-chat` (V3) | ~95% | ~10s/条 | 低延迟需求 |
+
+## 命令行参数
+
+```
+python monitor.py --mode daily       # 日报模式（默认 15 条归因 + 推送）
+python monitor.py --mode full        # 全量归因
+python monitor.py --mode quick       # 仅检测，不归因不推送
+python monitor.py --max 30           # 归因 30 条
+python monitor.py --date 2017-03-04  # 指定日期
+python monitor.py --lookback 7       # 回溯 7 天
+python monitor.py --no-notify        # 不推送飞书
+python monitor.py --export high      # 导出高风险 Excel
+
+python feishu_webhook.py --port 8080 # Webhook 服务器
+python feishu_poll.py --interval 10  # API 拉取模式（备选）
+```
+
+## 数据格式
+
+### 异常检测输出（8 字段）
+
+| 字段 | 说明 | 示例 |
+|------|------|------|
+| anomaly_id | 唯一标识 | `zscore_abc123` |
+| timestamp | 时间戳 | `2018-01-15` |
+| metric | 异常指标 | `Benefit per order` |
+| value | 实际值 | `-277.09` |
+| expected_range | 正常范围 | `[-239, 283]` |
+| severity | 严重程度 | `high` / `medium` / `low` |
+| detection_method | 检测方法 | `zscore` / `iqr` / `business_rule` |
+| context | 业务上下文 | `{Order Id, Category Name, ...}` |
+
+### 归因报告 JSON
 
 ```json
 {
-  "skills": {
-    "entries": {
-      "supply-chain-monitor": {
-        "path": "/path/to/supply-chain-anomaly-agent/skills/supply-chain-monitor",
-        "enabled": true,
-        "schedule": "0 8 * * *"
-      }
-    }
-  }
+  "root_cause_hypotheses": [{
+    "cause": "延迟交付触发了运费补贴...",
+    "probability": 0.75,
+    "evidence": ["订单状态为 Late delivery", "品类均值仅 $8.50"],
+    "against": ["上下文中未提供具体运费明细"]
+  }],
+  "recommended_actions": [{
+    "action": "财务分析师复核订单全部费用明细",
+    "priority": "high",
+    "owner": "财务分析师",
+    "sop_ref": "SOP-002"
+  }],
+  "risk_level": "high",
+  "confidence": 0.80,
+  "summary": "一句话总结"
 }
-```
-
-### 方式 3：环境变量
-
-```bash
-# 设置 DeepSeek API Key（如果不在 config.yaml 中）
-export DEEPSEEK_API_KEY="sk-your-key"
-```
-
-## 飞书推送效果
-
-推送的卡片消息格式：
-
-```
-┌─────────────────────────────────────┐
-│ 📦 供应链异常日报 | 2025-05-21     │
-├─────────────────────────────────────┤
-│ 共检出 59,585 个异常，其中 🔴 高   │
-│ 风险 15,602 个                      │
-│ AI 归因 4 个 | 数据不足降级 1 个    │
-├─────────────────────────────────────┤
-│ 1. [HIGH] 订单 #33 严重亏损，建议   │
-│    复核折扣叠加和运费明细...         │
-│    置信度: 80%                      │
-│    建议: 财务分析师复核订单费用明细  │
-├─────────────────────────────────────┤
-│ 2. [MED] 订单延迟 4 天，可能为仓库  │
-│    操作异常...                       │
-│    ...                              │
-├─────────────────────────────────────┤
-│ ⚠️ 1 个异常因数据不足跳过归因       │
-├─────────────────────────────────────┤
-│ 由 AutoClaw · Supply Chain Monitor  │
-│ 自动生成 | 2025-05-21               │
-└─────────────────────────────────────┘
 ```
 
 ## 故障排查
 
-### 问题：`ModuleNotFoundError: No module named 'analysis'`
-
-```bash
-# 确保在项目根目录运行
-cd /path/to/supply-chain-anomaly-agent
-python skills/supply-chain-monitor/monitor.py
-```
-
-### 问题：飞书收不到消息
-
-1. 检查 `config.yaml` 中 `notify.lark.webhook_url` 是否正确
-2. 检查 `notify.lark.enable_push: true`
-3. 飞书机器人需要在群里有权限
-4. 运行 `python monitor.py --no-notify` 跳过推送，检查日志
-
-### 问题：API 调用失败
-
-1. 确认 `config.yaml` 中 `llm.deepseek.api_key` 已填写
-2. 确认 DeepSeek 账户有余额
-3. `--mode quick` 可以跳过 API 调用
-
-### 问题：数据文件不存在
-
-确保 `data/raw/DataCoSupplyChainDataset.csv` 已下载（参考项目 README 数据集下载步骤）。
+| 症状 | 可能原因 | 解决 |
+|------|----------|------|
+| 飞书收不到日报 | enable_push: false 或 app_id 未配置 | 检查 config.yaml |
+| 归因大量失败 | max_tokens 过低（V4 Flash 需 ≥4096） | 改 config.yaml llm.deepseek.max_tokens |
+| @机器人 不回复 | 事件订阅 URL 未配置或 ngrok 挂了 | 检查 ngrok + 飞书后台 URL |
+| 回复两次（重复发文件） | webhook 端口多进程 | `netstat -ano | findstr ":8080"` 杀多余进程 |
+| ModuleNotFoundError | 不在项目根目录 | `cd` 到项目根目录再运行 |
+| DeepSeek API 401 | API Key 无效或余额不足 | 检查 config.yaml + DeepSeek 账户 |
 
 ## 日志
 
-日志文件：`logs/monitor.log`
+```bash
+# 查看监控日志
+tail -f logs/monitor.log
 
-正常运行的日志示例：
-```
-2025-05-21 08:00:01 [INFO] ===== 供应链异常监控启动 | mode=daily | date=2025-05-21 =====
-2025-05-21 08:00:03 [INFO] 数据加载完成: 180,519 行
-2025-05-21 08:00:15 [INFO] 检出 59,585 条异常 (high=15,602, medium=32,109, low=11,874)
-2025-05-21 08:00:45 [INFO] 归因完成: 4 次 LLM, 1 次降级, 0 次失败
-2025-05-21 08:00:46 [INFO] 报告已保存: data/output/daily_report_2025-05-21.json
-2025-05-21 08:00:47 [INFO] 飞书推送成功
-2025-05-21 08:00:47 [INFO] ===== 完成 | 耗时 46.3s =====
-```
-
-## 完整 JSON 报告格式
-
-保存到 `data/output/daily_report_{date}.json`：
-
-```json
-{
-  "date": "2025-05-21",
-  "generated_at": "2025-05-21T08:00:47",
-  "stats": {
-    "total_anomalies": 59585,
-    "severity_counts": {"high": 15602, "medium": 32109, "low": 11874},
-    "llm_calls": 4,
-    "degraded": 1,
-    "errors": 0
-  },
-  "reports": [...]
-}
+# 查看 webhook 日志（debug 端点）
+curl http://localhost:8080/debug
 ```
