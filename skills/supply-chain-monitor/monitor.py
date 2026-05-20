@@ -372,8 +372,8 @@ def main():
     parser = argparse.ArgumentParser(description="供应链异常监控 Skill")
     parser.add_argument("--mode", choices=["daily", "full", "quick"], default="daily",
                         help="运行模式: daily(日报) / full(全量) / quick(只检测)")
-    parser.add_argument("--lookback", type=int, default=1,
-                        help="回溯天数 (daily 默认 1)")
+    parser.add_argument("--lookback", type=int, default=7,
+                        help="回溯天数 (默认 7)")
     parser.add_argument("--max", dest="max_anomalies", type=int, default=5,
                         help="归因/飞书展示的异常数量上限")
     parser.add_argument("--no-notify", action="store_true",

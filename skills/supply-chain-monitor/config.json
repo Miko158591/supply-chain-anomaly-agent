@@ -5,7 +5,7 @@
   "project_path": "D:/OneDrive/Desktop/supply product",
   "defaults": {
     "mode": "daily",
-    "lookback_days": 1,
+    "lookback_days": 7,
     "max_anomalies": 5,
     "notify": true
   },
