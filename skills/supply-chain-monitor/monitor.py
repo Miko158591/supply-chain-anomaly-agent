@@ -126,13 +126,20 @@ def smart_truncate(text: str, max_len: int = 200) -> str:
     """
     if len(text) <= max_len:
         return text
-    search_start = int(max_len * 0.8)
+    # 从 70% 位置开始找分隔符（比 80% 更宽，更容易找到句子边界）
+    search_start = int(max_len * 0.7)
     chunk = text[search_start:max_len]
-    for sep in ["。", "！", "？", "\n", "；", "，", "、", " "]:
+    for sep in ["。", "！", "？", "\n", "；", "，", "、", " ", ". "]:
         pos = chunk.rfind(sep)
         if pos >= 0:
             return text[:search_start + pos + len(sep)]
-    return text[:max_len]
+    # 强制截断：退回到最后一个 ASCII 单词边界
+    hard_cut = text[:max_len]
+    # 如果最后几个字符是英文单词的一部分，回退到前一个空格
+    last_space = hard_cut.rfind(" ")
+    if last_space > max_len * 0.85:
+        return hard_cut[:last_space]
+    return hard_cut
 
 
 def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dict[str, Any]:
@@ -194,7 +201,7 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
         # 子要点：top 1 根因
         hyps = report.get("root_cause_hypotheses", [])
         if hyps:
-            top_cause = smart_truncate(hyps[0].get("cause", ""), 100)
+            top_cause = smart_truncate(hyps[0].get("cause", ""), 120)
             elements.append({
                 "tag": "div",
                 "text": {
