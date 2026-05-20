@@ -16,30 +16,34 @@
 ## 架构概览
 
 ```
-  [定时调度 / 飞书触发]
-           │
-           ▼
-  ┌─────────────────────┐
-  │   AnomalyDetector    │
-  │  Z-Score + IQR      │──── 异常列表 ────┐
-  │  + 移动平均         │                  │
-  │  + 业务规则         │                  ▼
-  └─────────────────────┘     ┌─────────────────────┐
-           │                  │  AttributionAgent    │
-           ▼                  │   DeepSeek API       │
-  ┌─────────────────────┐     │   + SOP 知识库       │
-  │   飞书卡片推送       │◀────│   + Few-Shot        │
-  │   Top N + 建议       │     └─────────────────────┘
-  └─────────────────────┘              │
-           │                           ▼
-           ▼                  ┌─────────────────────┐
-  ┌─────────────────────┐     │   JSON 报告          │
-  │   Excel 导出         │     │   + Excel 导出       │
-  │   --export high      │     └─────────────────────┘
-  └─────────────────────┘
+  ┌──────────────────────┐
+  │   DataCo CSV (18万行) │
+  └──────────┬───────────┘
+             │
+  ┌──────────▼───────────┐
+  │   AnomalyDetector    │  Z-Score + IQR + 移动平均 + 业务规则
+  │   检出 59,585 条异常   │
+  └──────────┬───────────┘
+             │
+  ┌──────────▼───────────┐
+  │  PatternClusterer    │  延迟+亏损 / 品类集中 / 区域集中
+  │   识别 6 个异常模式    │
+  └──────────┬───────────┘
+             │
+  ┌──────────▼───────────┐
+  │  AttributionAgent    │  DeepSeek V4 Flash
+  │   Top 15 条 LLM 归因  │  + SOP 知识库 + Few-Shot
+  └──────────┬───────────┘
+             │
+     ┌───────┴────────┐
+     ▼                ▼
+  ┌──────────┐  ┌──────────────┐
+  │ 飞书日报卡片 │  │ feishu_webhook │
+  │ 模式 + Top 5│  │ @机器人 交互     │
+  └──────────┘  │ 日报/全部/高风险  │
+                │ + Excel 文件     │
+                └──────────────┘
 ```
-
-数据流: CSV → AnomalyDetector → AttributionAgent(DeepSeek) → 飞书卡片 + Excel
 
 ---
 
@@ -158,6 +162,39 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 
 **理由**：180K 行逐行检测噪声太大。单点极端值和日级别趋势异常是两种不同模式的异常，需要不同的检测粒度。
 
+### ADR-005：模型无关设计——支持任意 OpenAI 兼容模型接入
+
+**决策**：归因和评委模型均通过 `config.yaml` 配置，**不绑定任何特定模型**。当前默认 DeepSeek V4 Flash（归因）+ V4 Pro（评委），但可随时替换。
+
+**设计原则**：
+1. **OpenAI SDK 兼容层**：所有 LLM 调用统一走 `openai` SDK，换模型只需改 `config.yaml` 中两行——`model` 和 `base_url`。零代码改动即可接入 GPT-4o / Claude / GLM-4 / Gemini / 任何自部署模型。
+2. **评委模型独立配置**（`llm.judge`）：评测时使用与归因不同的模型版本，避免同模型自评作弊。当前用 V4 Pro 评 V4 Flash（跨版本），也可换成 Claude 评 DeepSeek（跨厂商）。
+3. **成本考量**：日 15 条归因 × 月 450 条，DeepSeek ~$0.45/月。如果预算允许，改一行配置即可切换到 GPT-4o / Claude 获取更高质量归因。
+4. **图像识别预留**（`llm.vision`）：为未来图表分析留好接口，接入支持视觉的模型即可启用。
+
+```yaml
+# 示例：从 DeepSeek 切换到 GPT-4o
+llm:
+  deepseek:
+    model: "gpt-4o"              # 改这里
+    base_url: "https://api.openai.com/v1"  # 和这里
+  judge:
+    model: "claude-sonnet-4-20250514"     # 评委也可以换
+    base_url: "https://api.anthropic.com"
+```
+
+参见完整 ADR：[docs/architecture_decisions.md](docs/architecture_decisions.md)
+
+### ADR-006：为什么用规则聚类而不是 DBSCAN / 距离聚类？
+
+**决策**：异常模式识别使用规则法（延迟+亏损复合 / 品类集中 / 区域集中）。
+
+**理由**：
+1. **业务语义 > 数学距离**：DBSCAN 会把"延迟+亏损"和"纯延迟"聚在一起，但业务上线是两类问题（需财务+物流联合处置 vs 纯物流）。
+2. **离散特征不适合距离计算**：品类名、区域名、运输方式全是类别变量，Jaccard 相似度只有 0/1，区分度不足。
+3. **结果可直接转化为业务文案**：规则聚类输出"269 个订单呈现延迟+亏损复合特征"可直接放到飞书卡片里。DBSCAN 的"Cluster #0: centroid [...]" 业务人员完全看不懂。
+4. **规则可随时调整**：加新模式只需在 `pattern_clusterer.py` 加一个函数 + `config.yaml` 加一行配置。
+
 ---
 
 ## 数据集
@@ -218,22 +255,36 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 ```
 supply-chain-anomaly-agent/
 ├── analysis/
-│   └── anomaly_detector.py      # 异常检测引擎（Z-Score + IQR + MA + 业务规则）
-├── notebooks/
-│   └── 01_data_exploration.ipynb # EDA 探索分析（含 6 张图表 + 业务解读）
-├── tests/
-│   └── test_anomaly_detector.py  # 测试套件（21 边界用例 + 召回率验证）
-├── scripts/
-│   └── run_eda.py                # EDA 独立运行脚本
+│   ├── anomaly_detector.py       # 异常检测引擎（Z-Score + IQR + MA + 业务规则）
+│   ├── attribution_agent.py      # DeepSeek AI 归因 Agent（JSON Schema + 重试）
+│   └── pattern_clusterer.py      # 异常模式聚类（规则法：延迟+亏损 / 品类 / 区域）
+├── prompts/
+│   └── attribution_prompt.py     # System prompt + Few-Shot + JSON Schema + 反模板
+├── eval/
+│   ├── test_cases.json           # 10 个手工标注测试样本
+│   ├── run_eval.py               # 自动评测（检测 F1 + 评委打分 + 延迟）
+│   ├── report_template.md        # 结构化评测报告模板
+│   └── results/                  # 历次评测结果 JSON
 ├── docs/
+│   ├── PROJECT_CONTEXT.md        # 项目快速上手指南
+│   ├── architecture_decisions.md # 6 条 ADR（技术决策记录）
 │   └── images/                   # README 引用的图表
-├── src/                          # 核心业务代码（开发中）
-│   └── anomaly/                  # 模块化检测器（开发中）
-├── skills/                       # OpenClaw Skill 封装（开发中）
-├── agents/                       # Agent 角色定义（开发中）
-├── config.example.yaml           # 配置模板
+├── knowledge/
+│   └── supply_chain_sop.md       # 10 条供应链异常处置 SOP
+├── skills/supply-chain-monitor/
+│   ├── monitor.py                # 主入口（检测 → 模式 → 归因 → 推送）
+│   ├── feishu_webhook.py         # Webhook 服务器（接收飞书回调 + 命令处理）
+│   ├── feishu_poll.py            # API 拉取模式（备选，无需 tunnel）
+│   ├── message_formatter.py      # 消息格式化（日报卡片 + 交互回复）
+│   ├── session_store.py          # SQLite 会话状态 + 命令路由
+│   └── README.md                 # Skill 详细文档
+├── notebooks/
+│   └── 01_data_exploration.ipynb # EDA 探索分析
+├── tests/
+│   └── test_anomaly_detector.py  # 21 边界测试
+├── config.example.yaml           # 配置模板（可提交）
 ├── requirements.txt
-└── notes.md                      # 开发笔记
+└── notes.md                      # 开发笔记（全量记录）
 ```
 
 ---
@@ -247,8 +298,20 @@ supply-chain-anomaly-agent/
 - [x] 飞书推送 + 交互回复（企业应用 API，日报卡片 + @机器人命令 + Excel 文件推送）
 - [x] 异常模式聚类（规则法：延迟+亏损复合 / 品类集中 / 区域集中）
 - [x] 评测体系（10 样本测试集 + 跨模型评委 V4 Pro + 3 项指标自动评测）
-- [x] 归因质量优化（句式多样性 2→4、证据/逻辑强化、context 过滤、V4 Flash 适配）
-- [ ] 测试集扩充到 50 样本（30 异常 + 20 正常）
+- [x] 归因质量优化（句式多样性 2→4、证据/逻辑两轮强化、V4 Flash 适配）
+- [x] 测试体系（10 样本评测集 + 后续可自行扩充）
+
+### 当前评测指标（评委：DeepSeek V4 Pro）
+
+| 指标 | 值 | 说明 |
+|------|-----|------|
+| 检测 F1 | 61.5% (10 样本) | Precision 66.7%, Recall 57.1% |
+| 归因整体 | **3.4 / 5** | 两次优化后（原始 3.2） |
+| 行动可操作性 | **5.0 / 5** | 建议具体、有负责人 |
+| 诚实度 | **4.8 / 5** | 如实标置信度、列反驳证据 |
+| 逻辑连贯性 | 3.8 / 5 | context 过滤后 +0.4 |
+| 证据充分性 | 2.4 / 5 | 仍在改善中 |
+| 端到端延迟 | 95.5s | 检测 73s + 归因 22s/条 |
 
 ---
 
@@ -257,22 +320,29 @@ supply-chain-anomaly-agent/
 ### 命令行
 
 ```bash
-# 快速检查（只检测，不调 LLM，不推送，70s 完成）
-python skills/supply-chain-monitor/monitor.py --mode quick
+# 日报模式（检测 + 模式聚类 + 归因 Top 15 + 飞书推送）
+python skills/supply-chain-monitor/monitor.py --mode daily
 
-# 日报模式（检测 + 归因 Top 5 + 飞书推送）
-python skills/supply-chain-monitor/monitor.py --mode daily --max 5
+# 快速检查（只检测不归因，70s 完成）
+python skills/supply-chain-monitor/monitor.py --mode quick
 
 # 导出高风险异常到 Excel
 python skills/supply-chain-monitor/monitor.py --mode quick --export high
 
-# 导出全部异常
-python skills/supply-chain-monitor/monitor.py --mode quick --export all
+# 启动交互回复（让机器人识别群里 @它 的命令）
+python skills/supply-chain-monitor/feishu_webhook.py --port 8080
+ngrok http 8080  # 需要公网 URL 给飞书回调
 ```
 
-### 飞书触发
+### 飞书交互
 
-在飞书群里说 "跑一下供应链检查" 即可手动触发。
+在群里 @机器人：
+
+| 命令 | 效果 |
+|------|------|
+| `日报` | 输出日报卡片（异常模式 + Top 5） |
+| `全部` / `高风险` | 高风险 Excel 文件（15,602 条） |
+| `中风险` | 中风险 Excel 文件（32,109 条） |
 
 ### 飞书推送效果
 
@@ -312,10 +382,9 @@ python skills/supply-chain-monitor/monitor.py --mode quick --export all
 
 ## 联系方式
 
-- **作者**：WANG Chuncheng
+- **作者**：Miko
 - **GitHub**：[@Miko158591](https://github.com/Miko158591)
 - **项目**：[supply-chain-anomaly-agent](https://github.com/Miko158591/supply-chain-anomaly-agent)
-- **专业**：工业工程
 
 ---
 
