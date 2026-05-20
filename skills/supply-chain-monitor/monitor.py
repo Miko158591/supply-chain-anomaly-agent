@@ -248,7 +248,8 @@ def notify_feishu(lark_cfg: Dict, reports: List[Dict], stats: Dict,
 # 4. 报告保存
 # ================================================================
 
-def save_report(reports: List[Dict], stats: Dict, output_dir: str) -> str:
+def save_report(reports: List[Dict], stats: Dict, output_dir: str,
+                anomalies_df: Optional[pd.DataFrame] = None) -> str:
     today = date.today().isoformat()
     filepath = os.path.join(output_dir, f"daily_report_{today}.json")
     os.makedirs(output_dir, exist_ok=True)
@@ -261,6 +262,30 @@ def save_report(reports: List[Dict], stats: Dict, output_dir: str) -> str:
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
     logger.info(f"报告已保存: {filepath}")
+
+    # 保存全部异常数据为 CSV（供 Excel 导出用）
+    if anomalies_df is not None and not anomalies_df.empty:
+        csv_path = os.path.join(output_dir, f"anomalies_full_{today}.csv")
+        export_df = anomalies_df.copy()
+        # 展开 context 字典中的订单号等关键字段
+        ctx_keys = ["Order Id", "Category Name", "Product Name",
+                    "Order Region", "Order City", "Market",
+                    "Shipping Mode", "Delivery Status"]
+        for k in ctx_keys:
+            export_df[k] = export_df["context"].apply(
+                lambda c, key=k: c.get(key, "") if isinstance(c, dict) else ""
+            )
+        # 保留核心列
+        key_cols = [
+            "Order Id", "Category Name", "Product Name",
+            "metric", "value", "severity", "detection_method",
+            "Order Region", "Market", "Shipping Mode", "Delivery Status",
+        ]
+        available = [c for c in key_cols if c in export_df.columns]
+        export_df[available].to_csv(csv_path, index=False, encoding="utf-8")
+        logger.info(f"全部异常数据已保存: {csv_path} ({len(export_df):,} 条)")
+        return filepath, csv_path
+
     return filepath
 
 
@@ -333,7 +358,8 @@ def main():
     # 保存 JSON 报告
     report_path = save_report(
         result["reports"], result["stats"],
-        os.path.join(PROJECT_ROOT, "data", "output"))
+        os.path.join(PROJECT_ROOT, "data", "output"),
+        anomalies_df=result.get("anomalies_df"))
 
     # ── 模拟飞书回复 ──
     if args.reply:

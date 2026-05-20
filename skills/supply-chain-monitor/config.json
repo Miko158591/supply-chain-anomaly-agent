@@ -10,8 +10,8 @@
     "notify": true
   },
   "schedule": {
-    "cron": "0 8 * * *",
-    "description": "每天早上 8:00 执行日报"
+    "cron": "",
+    "description": "定时调度已关闭（数据为静态数据集，每日内容相同，改为手动触发）"
   },
   "feishu_card": {
     "title_template": "供应链异常日报 | {date}",

@@ -168,54 +168,111 @@ def send_file_to_chat(app_id: str, app_secret: str, chat_id: str,
 
 
 def generate_excel(project_root: str, severity: str, report_date: str) -> Optional[str]:
-    """生成 Excel 导出文件，返回文件路径。"""
+    """生成 Excel 导出文件，返回文件路径。
+
+    优先从全部异常 CSV 读取所有记录，再用 LLM 归因数据补充原因/建议列。
+    """
     import pandas as pd
-    import json as _json
 
-    # 加载最新日报
-    report_data = load_latest_report(project_root)
-    if not report_data:
-        return None
-
-    reports = report_data.get("reports", [])
-    if not reports:
-        return None
-
-    # 从 reports 的 _meta.anomaly_context 提取订单信息
-    rows = []
-    for r in reports:
-        if "error" in r:
-            continue
-        risk = r.get("risk_level", "low")
-        if severity == "high" and risk != "high":
-            continue
-        if severity == "medium" and risk not in ("high", "medium"):
-            continue
-
-        ctx = r.get("_meta", {}).get("anomaly_context", r.get("context", {}))
-        hyps = r.get("root_cause_hypotheses", [])
-        actions = r.get("recommended_actions", [])
-
-        rows.append({
-            "订单号": ctx.get("Order Id", ""),
-            "风险等级": risk.upper(),
-            "置信度": f"{r.get('confidence', 0):.0%}",
-            "摘要": r.get("summary", ""),
-            "根因": hyps[0].get("cause", "") if hyps else "",
-            "建议": actions[0].get("action", "") if actions else "",
-            "负责人": actions[0].get("owner", "") if actions else "",
-        })
-
-    if not rows:
-        return None
-
-    df = pd.DataFrame(rows)
     output_dir = os.path.join(project_root, "data", "output")
+
+    # 1) 尝试加载全部异常 CSV
+    csv_path = os.path.join(output_dir, f"anomalies_full_{report_date}.csv")
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path, encoding="utf-8")
+        # 筛选风险等级
+        if severity == "high":
+            df = df[df["severity"] == "high"]
+        elif severity == "medium":
+            df = df[df["severity"].isin(["high", "medium"])]
+        df = df.copy()
+        df.rename(columns={
+            "Order Id": "订单号",
+            "Category Name": "品类",
+            "Product Name": "产品名",
+            "metric": "检测指标",
+            "value": "异常值",
+            "severity": "风险等级",
+            "detection_method": "检测方法",
+            "Order Region": "区域",
+            "Market": "市场",
+            "Shipping Mode": "运输方式",
+            "Delivery Status": "交付状态",
+        }, inplace=True)
+        if "风险等级" in df.columns:
+            df["风险等级"] = df["风险等级"].str.upper()
+
+        # 2) 加载 LLM 归因数据并合并
+        report_data = load_latest_report(project_root)
+        if report_data:
+            reports = report_data.get("reports", [])
+            attr_map = {}
+            for r in reports:
+                if "error" in r:
+                    continue
+                ctx = r.get("_meta", {}).get("anomaly_context", r.get("context", {}))
+                oid = str(ctx.get("Order Id", ""))
+                hyps = r.get("root_cause_hypotheses", [])
+                actions = r.get("recommended_actions", [])
+                attr_map[oid] = {
+                    "AI置信度": f"{r.get('confidence', 0):.0%}",
+                    "AI根因": hyps[0].get("cause", "") if hyps else "",
+                    "处置建议": actions[0].get("action", "") if actions else "",
+                    "负责人": actions[0].get("owner", "") if actions else "",
+                }
+
+            df["AI置信度"] = df["订单号"].astype(str).map(
+                lambda o: attr_map.get(o, {}).get("AI置信度", "")
+            )
+            df["AI根因"] = df["订单号"].astype(str).map(
+                lambda o: attr_map.get(o, {}).get("AI根因", "")
+            )
+            df["处置建议"] = df["订单号"].astype(str).map(
+                lambda o: attr_map.get(o, {}).get("处置建议", "")
+            )
+            df["负责人"] = df["订单号"].astype(str).map(
+                lambda o: attr_map.get(o, {}).get("负责人", "")
+            )
+
+    else:
+        # 兜底：只用 LLM 归因数据
+        report_data = load_latest_report(project_root)
+        if not report_data:
+            return None
+        reports = report_data.get("reports", [])
+        rows = []
+        for r in reports:
+            if "error" in r:
+                continue
+            risk = r.get("risk_level", "low")
+            if severity == "high" and risk != "high":
+                continue
+            if severity == "medium" and risk not in ("high", "medium"):
+                continue
+            ctx = r.get("_meta", {}).get("anomaly_context", r.get("context", {}))
+            hyps = r.get("root_cause_hypotheses", [])
+            actions = r.get("recommended_actions", [])
+            rows.append({
+                "订单号": ctx.get("Order Id", ""),
+                "风险等级": risk.upper(),
+                "AI置信度": f"{r.get('confidence', 0):.0%}",
+                "异常概述": r.get("summary", ""),
+                "AI根因": hyps[0].get("cause", "") if hyps else "",
+                "处置建议": actions[0].get("action", "") if actions else "",
+                "负责人": actions[0].get("owner", "") if actions else "",
+            })
+        if not rows:
+            return None
+        df = pd.DataFrame(rows)
+
+    if df.empty:
+        return None
+
     os.makedirs(output_dir, exist_ok=True)
     filename = f"anomalies_{severity}_{report_date}.xlsx"
     filepath = os.path.join(output_dir, filename)
     df.to_excel(filepath, index=False, engine="openpyxl")
-    logger.info(f"Excel 已生成: {filepath} ({len(rows)} 条)")
+    logger.info(f"Excel 已生成: {filepath} ({len(df):,} 条)")
     return filepath# ═══════════════════════════════════════════
 # 消息解析
 # ═══════════════════════════════════════════
