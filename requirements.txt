@@ -1,0 +1,32 @@
+# ============================================================
+# 供应链异常智能监控与归因 Agent — Python 依赖
+# Python 3.10+
+# ============================================================
+
+# ----- 数据处理 -----
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# ----- 异常检测（统计方法，不依赖重型 ML 库）-----
+# 所有检测方法均基于 numpy/scipy 手动实现，见 src/anomaly/
+
+# ----- LLM / API 调用 -----
+openai>=1.30.0          # DeepSeek API（兼容 OpenAI SDK） + MiniMax API
+requests>=2.31.0        # 飞书 Webhook 推送
+
+# ----- Agent 框架 -----
+# OpenClaw（也叫 AutoClaw）— 开源供应链 Agent 框架
+# 安装方式见 README.md
+
+# ----- 可视化 -----
+matplotlib>=3.7.0
+plotly>=5.15.0
+
+# ----- 配置与日志 -----
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# ----- 工具 -----
+tqdm>=4.65.0            # 进度条
+python-dateutil>=2.8.0  # 时间解析

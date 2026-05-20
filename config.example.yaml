@@ -1,0 +1,139 @@
+# ============================================================
+# 供应链异常智能监控与归因 Agent — 配置文件模板
+# 使用方式：复制此文件为 config.yaml 并填入真实值
+#   cp config.example.yaml config.yaml
+# config.yaml 已在 .gitignore 中排除，不会提交到 Git
+# ============================================================
+
+# ---- LLM API 密钥 ----
+llm:
+  deepseek:
+    api_key: "sk-your-deepseek-api-key-here"  # DeepSeek API Key
+    base_url: "https://api.deepseek.com"        # API 地址（兼容 OpenAI SDK）
+    model: "deepseek-chat"                      # 模型名称
+    max_tokens: 2048
+    temperature: 0.3                            # 归因分析建议用低温保证一致性
+
+  minimax:
+    api_key: "your-minimax-api-key-here"        # MiniMax API Key（用于图像识别）
+    base_url: "https://api.minimax.chat/v1"
+    model: "abab6.5s-chat"
+
+# ---- 飞书推送 ----
+notify:
+  lark:
+    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token"
+    enable_push: true                           # 是否启用推送（开发阶段可关闭）
+
+# ---- 异常检测参数 ----
+# 阈值基于 EDA 阶段对 DataCo 数据集的实际分布分析得出：
+#   - Benefit per order: mean=22.0, std=104.4, 5th%ile=-139, 95th%ile=132
+#   - shipping_delay_days: Q1=0, Q3=1, IQR=1, max=4, 95th%ile=3
+#   - Order Item Profit Ratio: mean=0.12, std=0.47, 90th%ile=0.47
+#   - Order Item Total: mean=183.1, std=120.0, 99th%ile=465
+#   - Daily late_rate: mean=0.549, std=0.073
+#   - Daily order_count: mean=58.3, std=4.6
+anomaly:
+  zscore:
+    threshold: 2.5                             # Z-Score 阈值（基于利润分布：z=2.5 捕获 5th%ile 以下的亏损）
+    min_periods: 7                             # 最少数据点数量
+  moving_avg:
+    window: 7                                   # 移动平均窗口（天）
+    deviation_factor: 2.0                       # 偏离倍数（日度指标波动小，2.0 平衡误报与漏报）
+  iqr:
+    multiplier: 1.5                             # IQR 乘数（标准值 1.5，适合偏态分布如利润和金额）
+
+  # 综合判定：至少 2 种方法标为异常才确认（降低误报）
+  consensus_min: 2
+
+  # 业务规则 — 基于 EDA 数据的硬阈值（比统计方法更直接）
+  business_rules:
+    extreme_loss_threshold: -200               # 利润 < -$200（约 3.3% 订单）
+    extreme_delay_days: 3                      # 延迟 > 3 天（约 95th%ile）
+    high_profit_ratio: 0.45                    # 利润率 > 45%（约 90th%ile）
+    high_value_threshold: 500                  # 单笔金额 > $500（约 99.6th%ile）
+
+# ---- 数据配置 ----
+data:
+  raw_dir: "data/raw"                           # 原始 CSV 文件目录
+  db_path: "data/processed/supply_chain.db"     # SQLite 数据库路径
+  output_dir: "data/output"                     # 图表和报告输出目录
+
+  # Kaggle 数据集实际文件（单张大宽表，含全部维度）
+  main_file: "DataCoSupplyChainDataset.csv"     # 主数据文件（~96MB, 53列）
+  description_file: "DescriptionDataCoSupplyChain.csv"  # 数据字典
+  access_logs: "tokenized_access_logs.csv"      # 访问日志（可选）
+
+  # 宽表中按业务维度拆分的列前缀（用于 data_loader 自动分表）
+  dimensions:
+    orders:
+      - "Type"                  # 支付方式
+      - "Days for shipping (real)"
+      - "Days for shipment (scheduled)"
+      - "Benefit per order"
+      - "Sales per customer"
+      - "Delivery Status"       # 物流状态（核心监控指标）
+      - "Late_delivery_risk"    # 延迟交付风险标签（0/1）
+      - "Order Id"
+      - "Order Item Id"
+      - "Order Customer Id"
+      - "Order Item Discount"
+      - "Order Item Discount Rate"
+      - "Order Item Product Price"
+      - "Order Item Profit Ratio"
+      - "Order Item Quantity"
+      - "Sales"
+      - "Order Item Total"
+      - "Order Profit Per Order"
+      - "Order Region"
+      - "Order State"
+      - "Order Status"
+      - "Order City"
+      - "Order Country"
+      - "Order Zipcode"
+      - "order date (DateOrders)"
+      - "shipping date (DateOrders)"
+      - "Shipping Mode"
+    customers:
+      - "Customer City"
+      - "Customer Country"
+      - "Customer Email"
+      - "Customer Fname"
+      - "Customer Lname"
+      - "Customer Id"
+      - "Customer Segment"
+      - "Customer State"
+      - "Customer Street"
+      - "Customer Zipcode"
+      - "Customer Password"
+    products:
+      - "Category Id"
+      - "Category Name"
+      - "Product Card Id"
+      - "Product Category Id"
+      - "Product Description"
+      - "Product Image"
+      - "Product Name"
+      - "Product Price"
+      - "Product Status"
+    logistics:
+      - "Department Id"
+      - "Department Name"
+      - "Latitude"
+      - "Longitude"
+      - "Market"
+      - "Shipping Mode"
+
+# ---- 监控调度 ----
+schedule:
+  default_time: "08:00"                         # 每天早上 8 点运行
+  retry_count: 3                                # 失败重试次数
+  retry_delay_seconds: 30                       # 重试间隔
+
+# ---- 日志 ----
+logging:
+  level: "INFO"                                 # DEBUG / INFO / WARNING / ERROR
+  dir: "logs"
+  file: "logs/app.log"
+  max_bytes: 10485760                           # 10 MB 滚动
+  backup_count: 5
