@@ -93,7 +93,6 @@ def handle_message(chat_id: str, user_id: str, text: str,
     from message_formatter import (
         format_anomaly_summary,
         format_anomaly_detail,
-        format_all_anomalies,
     )
 
     text = text.strip()
@@ -120,13 +119,5 @@ def handle_message(chat_id: str, user_id: str, text: str,
         import json
         report = json.loads(session["report_json"])
         return format_anomaly_detail(report, session["active_anomaly_index"] + 1)
-
-    # "全部" → 清单
-    if text == "全部":
-        return format_all_anomalies(reports, stats)
-
-    # "导出"
-    if text == "导出":
-        return "Excel 导出命令: `python skills/supply-chain-monitor/monitor.py --mode quick --export high`"
 
     return None  # 无法识别的命令

@@ -221,18 +221,27 @@ def generate_excel(project_root: str, severity: str, report_date: str) -> Option
                     "负责人": actions[0].get("owner", "") if actions else "",
                 }
 
-            df["AI置信度"] = df["订单号"].astype(str).map(
+            # 标准化订单号（去掉 float 的 .0 后缀）
+            def norm_oid(v):
+                s = str(v).strip()
+                if s.endswith(".0"):
+                    s = s[:-2]
+                return s
+
+            df["_oid_norm"] = df["订单号"].apply(norm_oid)
+            df["AI置信度"] = df["_oid_norm"].map(
                 lambda o: attr_map.get(o, {}).get("AI置信度", "")
             )
-            df["AI根因"] = df["订单号"].astype(str).map(
+            df["AI根因"] = df["_oid_norm"].map(
                 lambda o: attr_map.get(o, {}).get("AI根因", "")
             )
-            df["处置建议"] = df["订单号"].astype(str).map(
+            df["处置建议"] = df["_oid_norm"].map(
                 lambda o: attr_map.get(o, {}).get("处置建议", "")
             )
-            df["负责人"] = df["订单号"].astype(str).map(
+            df["负责人"] = df["_oid_norm"].map(
                 lambda o: attr_map.get(o, {}).get("负责人", "")
             )
+            df.drop(columns=["_oid_norm"], inplace=True)
 
     else:
         # 兜底：只用 LLM 归因数据
@@ -383,12 +392,8 @@ def feishu_event():
 
     logger.info(f"收到消息: chat={chat_id} user={user_id} command='{command}'")
 
-    # 异步处理：不阻塞飞书响应
-    threading.Thread(
-        target=_process_command,
-        args=(chat_id, user_id, command),
-        daemon=True,
-    ).start()
+    # 同步处理（文件上传可在 3 秒内完成）
+    _process_command(chat_id, user_id, command)
 
     return jsonify({"code": 0})
 
