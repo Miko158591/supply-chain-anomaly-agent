@@ -22,6 +22,7 @@ import re
 import sys
 import threading
 import time
+from collections import OrderedDict
 from datetime import date
 from typing import Any, Dict, List, Optional
 
@@ -45,6 +46,54 @@ logging.basicConfig(
 logger = logging.getLogger("feishu-webhook")
 
 app = Flask(__name__)
+
+# 事件去重：飞书 3 秒超时会重发同一消息
+_RECENT_EVENTS: OrderedDict = OrderedDict()
+_EVENT_TTL = 60  # 秒
+_MAX_EVENTS = 500
+
+
+def _is_duplicate(event_id: str, message_id: str) -> bool:
+    """双重去重：event_id（飞书事件）+ message_id（消息）。
+
+    飞书超时重发时可能生成新 event_id，但 message_id 始终相同。
+    """
+    now = time.time()
+    # 清理过期
+    stale = []
+    for k, ts in _RECENT_EVENTS.items():
+        if now - ts > _EVENT_TTL:
+            stale.append(k)
+    for k in stale:
+        del _RECENT_EVENTS[k]
+    # 限制大小
+    while len(_RECENT_EVENTS) > _MAX_EVENTS:
+        _RECENT_EVENTS.popitem(last=False)
+
+    # 双重检查
+    if event_id and event_id in _RECENT_EVENTS:
+        return True
+    if message_id and message_id in _RECENT_EVENTS:
+        return True
+
+    # 都记录
+    if event_id:
+        _RECENT_EVENTS[event_id] = now
+    if message_id:
+        _RECENT_EVENTS[message_id] = now
+    return False
+
+
+# 后台线程池
+_executor = None
+
+
+def _get_executor():
+    global _executor
+    if _executor is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _executor = ThreadPoolExecutor(max_workers=3)
+    return _executor
 
 
 # ═══════════════════════════════════════════
@@ -368,7 +417,7 @@ def feishu_event():
         logger.info(f"URL 验证请求, challenge={challenge[:20]}...")
         return jsonify({"challenge": challenge})
 
-    # 2) 事件推送 — 先回 200，再异步处理（避免飞书 3 秒超时重发）
+    # 2) 事件推送 — 先回 200，后台处理（避免飞书 3 秒超时重发）
     header = body.get("header", {})
     event_type = header.get("event_type", "")
     event = body.get("event", {})
@@ -378,6 +427,13 @@ def feishu_event():
 
     message = event.get("message", {})
     if message.get("message_type") != "text":
+        return jsonify({"code": 0})
+
+    # 双重去重（event_id + message_id）
+    event_id = header.get("event_id", "")
+    message_id = message.get("message_id", "")
+    if _is_duplicate(event_id, message_id):
+        logger.info(f"跳过重复: event={event_id[:20]} msg={message_id[:20]}")
         return jsonify({"code": 0})
 
     chat_id = message.get("chat_id", "")
@@ -392,8 +448,8 @@ def feishu_event():
 
     logger.info(f"收到消息: chat={chat_id} user={user_id} command='{command}'")
 
-    # 同步处理（文件上传可在 3 秒内完成）
-    _process_command(chat_id, user_id, command)
+    # 提交到后台线程处理，立即返回（< 1 秒）
+    _get_executor().submit(_process_command, chat_id, user_id, command)
 
     return jsonify({"code": 0})
 
@@ -430,6 +486,41 @@ def _process_command_inner(chat_id: str, user_id: str, command: str):
     reports = report_data.get("reports", [])
     stats = report_data.get("stats", {})
     report_date_str = report_data.get("date", date.today().isoformat())
+    patterns_data = report_data.get("patterns", [])
+
+    # 日报命令：输出日报卡片
+    if command == "日报":
+        from message_formatter import format_daily_summary
+        content = format_daily_summary(stats, reports, report_date_str,
+                                       patterns=patterns_data)
+        token = get_tenant_token(app_id, app_secret)
+        if token:
+            card = {
+                "msg_type": "interactive",
+                "card": {
+                    "header": {
+                        "title": {"tag": "plain_text",
+                                  "content": f"供应链异常日报 | {report_date_str}"},
+                        "template": "blue",
+                    },
+                    "elements": [{
+                        "tag": "div",
+                        "text": {"tag": "lark_md", "content": content},
+                    }],
+                },
+            }
+            payload = {
+                "receive_id": chat_id,
+                "msg_type": "interactive",
+                "content": json.dumps(card["card"]),
+            }
+            requests.post(
+                "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json"},
+                json=payload, timeout=15,
+            )
+        return
 
     # Excel 命令
     if command in ("全部", "高风险"):

@@ -6,7 +6,7 @@
   "defaults": {
     "mode": "daily",
     "lookback_days": 7,
-    "max_anomalies": 5,
+    "max_anomalies": 15,
     "notify": true
   },
   "schedule": {
