@@ -521,14 +521,25 @@ class AnomalyDetector:
             "Order Item Profit Ratio": df["Order Item Profit Ratio"].reset_index(drop=True),
             "Order Item Total": df["Order Item Total"].reset_index(drop=True),
         }
+        # 业务上下文字段（注入到统计检测结果中，不只输出数字）
+        BUSINESS_CONTEXT_COLS = [
+            "Order Id", "Order Item Id", "Category Name", "Product Name",
+            "Delivery Status", "Market", "Customer Segment", "Shipping Mode",
+            "Order Region", "Type",
+        ]
+
         for metric, series in record_metrics.items():
             iqr_records = self.detect_iqr(series, metric_name=metric)
-            # 把整数 index 替换为实际日期
             for r in iqr_records:
                 try:
                     pos = int(r["timestamp"])
                     r["timestamp"] = str(df.iloc[pos]["order date (DateOrders)"])
-                except (ValueError, KeyError):
+                    # 注入业务上下文：从 df 的对应行读取关键字段
+                    row = df.iloc[pos]
+                    r["context"].update(
+                        {c: row[c] for c in BUSINESS_CONTEXT_COLS if c in row.index}
+                    )
+                except (ValueError, KeyError, IndexError):
                     pass
             all_results.extend(iqr_records)
 
@@ -537,7 +548,11 @@ class AnomalyDetector:
                 try:
                     pos = int(r["timestamp"])
                     r["timestamp"] = str(df.iloc[pos]["order date (DateOrders)"])
-                except (ValueError, KeyError):
+                    row = df.iloc[pos]
+                    r["context"].update(
+                        {c: row[c] for c in BUSINESS_CONTEXT_COLS if c in row.index}
+                    )
+                except (ValueError, KeyError, IndexError):
                     pass
             all_results.extend(z_records)
 
