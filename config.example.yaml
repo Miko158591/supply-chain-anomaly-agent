@@ -14,11 +14,6 @@ llm:
     max_tokens: 2048
     temperature: 0.3                            # 归因分析建议用低温保证一致性
 
-  minimax:
-    api_key: "your-minimax-api-key-here"        # MiniMax API Key（用于图像识别）
-    base_url: "https://api.minimax.chat/v1"
-    model: "abab6.5s-chat"
-
 # ---- 飞书推送 ----
 notify:
   lark:

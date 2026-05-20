@@ -15,7 +15,7 @@
 | 层 | 技术 |
 |------|------|
 | 异常检测 | Z-Score + IQR + 移动平均偏离 + 业务规则（纯统计，不用 ML） |
-| LLM 归因 | DeepSeek API（OpenAI 兼容 SDK）+ MiniMax API |
+| LLM 归因 | DeepSeek API（OpenAI 兼容 SDK）|
 | Prompt 工程 | Few-Shot（3 示例）+ JSON Schema 校验 + 防幻觉铁律 |
 | Agent 框架 | OpenClaw / AutoClaw（Skill 机制） |
 | 存储 | SQLite + CSV |

@@ -110,7 +110,6 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 | 异常检测 | Z-Score + IQR + 移动平均偏离 | 纯统计方法，零依赖，可解释性强 |
 | 业务规则 | 基于 EDA 分位数推导的硬阈值 | 规则透明，运营人员可直接理解和调整 |
 | LLM 归因 | DeepSeek API (OpenAI 兼容) | 性价比高，中文能力强 |
-| 图像理解 | MiniMax API | 图表和文档截图识别 |
 | Agent 框架 | OpenClaw / AutoClaw | 开源，Skill 机制适合供应链流程编排 |
 | 可视化 | matplotlib + plotly | 静态报告 + 交互式仪表盘 |
 | 存储 | SQLite + CSV | 零配置本地数据库，单文件便携 |

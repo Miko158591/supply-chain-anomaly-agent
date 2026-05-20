@@ -163,12 +163,12 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
         df["Days for shipping (real)"] - df["Days for shipment (scheduled)"]
     )
 
-    # 用 MiniMax 作为评委（跨模型，避免自评）
+    # 用 DeepSeek V3 作为评委（跨模型版本，V3 评 V4 Flash，避免同模型自评）
     from openai import OpenAI
-    judge_cfg = config.get("llm", {}).get("minimax", {})
+    judge_cfg = config.get("llm", {}).get("deepseek", {})
     judge = OpenAI(
         api_key=judge_cfg.get("api_key", ""),
-        base_url=judge_cfg.get("base_url", "https://api.minimax.chat/v1"),
+        base_url=judge_cfg.get("base_url", "https://api.deepseek.com"),
     )
 
     scores = []
@@ -192,7 +192,7 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
                 scores.append({"id": tc["id"], "score": 0, "error": report.get("error")})
                 continue
 
-            # 让 MiniMax 评委打分
+            # 让评委打分
             judge_prompt = ATTRIBUTION_JUDGE_PROMPT.format(
                 anomaly_context=json.dumps(snapshot, ensure_ascii=False, indent=2),
                 attribution_json=json.dumps(report, ensure_ascii=False, indent=2)[:3000],
@@ -219,7 +219,7 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
     )
 
     return {
-        "judge_model": config.get("llm", {}).get("minimax", {}).get("model", "unknown"),
+        "judge_model": config.get("llm", {}).get("deepseek", {}).get("model", "unknown"),
         "samples_evaluated": len(scores),
         "average_score": round(avg_overall, 2),
         "dimension_scores": {
