@@ -241,35 +241,101 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
     }
 
 
-def notify_feishu(webhook_url: str, reports: List[Dict], stats: Dict,
-                  report_date: str, notify_enabled: bool = True) -> bool:
-    """推送飞书卡片消息。"""
-    if not notify_enabled or not webhook_url or "your-webhook" in webhook_url:
-        logger.info("飞书推送未启用或 webhook 未配置，跳过")
+def _get_tenant_token(app_id: str, app_secret: str) -> Optional[str]:
+    """获取飞书企业自建应用的 tenant_access_token。"""
+    try:
+        resp = requests.post(
+            "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+            json={"app_id": app_id, "app_secret": app_secret},
+            timeout=10,
+        )
+        data = resp.json()
+        if data.get("code") == 0:
+            return data["tenant_access_token"]
+        else:
+            logger.error(f"获取飞书 token 失败: {data}")
+            return None
+    except Exception as e:
+        logger.error(f"获取飞书 token 请求失败: {e}")
+        return None
+
+
+def _send_via_app(app_id: str, app_secret: str, chat_id: str,
+                  card: Dict, report_date: str) -> bool:
+    """通过飞书应用 API 发送卡片消息。"""
+    token = _get_tenant_token(app_id, app_secret)
+    if not token:
         return False
 
+    # 如果有 chat_id 就用它，否则不指定（可能往 webhook 对应的群发）
+    payload: Dict[str, Any] = {
+        "receive_id": chat_id,
+        "msg_type": "interactive",
+        "content": json.dumps(card["card"]),
+    }
+
+    try:
+        resp = requests.post(
+            "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=15,
+        )
+        data = resp.json()
+        if data.get("code") == 0:
+            logger.info(f"飞书应用推送成功 (chat={chat_id or 'default'})")
+            return True
+        else:
+            logger.warning(f"飞书应用推送失败: {data}")
+            return False
+    except Exception as e:
+        logger.error(f"飞书应用推送请求失败: {e}")
+        return False
+
+
+def notify_feishu(lark_cfg: Dict, reports: List[Dict], stats: Dict,
+                  report_date: str) -> bool:
+    """推送飞书卡片消息。优先用企业应用 API，兜底用 webhook。"""
     if not reports:
         logger.info("无异常报告，跳过推送")
         return False
 
+    enable = lark_cfg.get("enable_push", False)
+    if not enable:
+        logger.info("飞书推送未启用 (enable_push=false)")
+        return False
+
     card = build_feishu_card(reports, stats, report_date)
 
-    try:
-        resp = requests.post(webhook_url, json=card, timeout=15)
-        if resp.status_code == 200:
-            body = resp.json()
-            if body.get("code") == 0:
-                logger.info("飞书推送成功")
+    app_id = lark_cfg.get("app_id", "")
+    app_secret = lark_cfg.get("app_secret", "")
+    chat_id = lark_cfg.get("chat_id", "")
+    webhook_url = lark_cfg.get("webhook_url", "")
+
+    # 方式 A：企业自建应用
+    if app_id and app_secret and "your-" not in app_id:
+        logger.info("尝试飞书应用 API 推送...")
+        if _send_via_app(app_id, app_secret, chat_id, card, report_date):
+            return True
+        logger.info("应用 API 推送失败，尝试 webhook 兜底...")
+
+    # 方式 B：Webhook 兜底
+    if webhook_url and "your-webhook" not in webhook_url:
+        logger.info("尝试飞书 Webhook 推送...")
+        try:
+            resp = requests.post(webhook_url, json=card, timeout=15)
+            if resp.status_code == 200 and resp.json().get("code") == 0:
+                logger.info("飞书 Webhook 推送成功")
                 return True
             else:
-                logger.warning(f"飞书推送返回错误: {body}")
+                logger.warning(f"飞书 Webhook 推送失败: {resp.text[:200]}")
                 return False
-        else:
-            logger.warning(f"飞书推送 HTTP {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.error(f"飞书 Webhook 请求失败: {e}")
             return False
-    except requests.RequestException as e:
-        logger.error(f"飞书推送请求失败: {e}")
-        return False
+
+    logger.warning("飞书推送失败：无可用方式 (app_id/webhook 均未正确配置)")
+    return False
 
 
 # ══════════════════════════════════════════════════════════════
@@ -325,10 +391,9 @@ def main():
         logger.warning("config.yaml 未找到，使用空配置")
         config = {}
 
-    webhook_url = config.get("notify", {}).get("lark", {}).get("webhook_url", "")
-    notify_enabled = config.get("notify", {}).get("lark", {}).get("enable_push", False)
+    lark_cfg = config.get("notify", {}).get("lark", {})
     if args.no_notify:
-        notify_enabled = False
+        lark_cfg = {**lark_cfg, "enable_push": False}
 
     report_date = args.date or date.today().isoformat()
 
@@ -357,8 +422,8 @@ def main():
 
     # ── 飞书推送 ──
     feishu_ok = notify_feishu(
-        webhook_url, result["reports"], result["stats"],
-        report_date, notify_enabled,
+        lark_cfg, result["reports"], result["stats"],
+        report_date,
     )
 
     # ── 汇总 ──

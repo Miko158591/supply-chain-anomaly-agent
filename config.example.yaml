@@ -22,8 +22,14 @@ llm:
 # ---- 飞书推送 ----
 notify:
   lark:
-    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token"
-    enable_push: true                           # 是否启用推送（开发阶段可关闭）
+    # 方式 A：企业自建应用（推荐，支持富文本卡片）
+    app_id: "cli_xxxxxxxxxxxxxx"
+    app_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    # 方式 B：群机器人 Webhook（简单，只需 URL）
+    webhook_url: ""
+    # 通用设置
+    enable_push: true
+    chat_id: "oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"   # 目标群聊 ID（可通过 API 获取）
 
 # ---- 异常检测参数 ----
 # 阈值基于 EDA 阶段对 DataCo 数据集的实际分布分析得出：
