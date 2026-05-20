@@ -1,6 +1,30 @@
 # Supply Chain Monitor Skill
 
-供应链异常智能监控 OpenClaw Skill。每天自动跑，异常检测 → AI 归因 → 飞书推送。
+供应链异常智能监控 OpenClaw Skill。每天自动跑，异常检测 → AI 归因 → 飞书推送 + 交互回复。
+
+## 快速开始
+
+```bash
+# 1. 日报模式：检测 + 归因 + 推送飞书
+python skills/supply-chain-monitor/monitor.py --mode daily --max 5
+
+# 2. 启动消息轮询（让机器人能识别群里的回复命令）
+python skills/supply-chain-monitor/feishu_poll.py --interval 10
+```
+
+## 飞书交互命令
+
+日报推送后，在群里 @机器人 发送以下命令：
+
+| 命令 | 效果 | 示例 |
+|------|------|------|
+| `全部` | 列出今日所有已归因异常 | @机器人 全部 |
+| `1` ~ `20` | 查看对应编号异常的摘要（Layer 2） | @机器人 3 |
+| `详情` | 查看上一次查看的异常的完整报告（Layer 3） | @机器人 详情 |
+| `导出` | 提示 Excel 导出命令 | @机器人 导出 |
+
+**消息轮询 (`feishu_poll.py`)** 负责接收这些命令并回复。需后台常驻运行。
+前置条件：飞书应用已开通 `im:message.group_msg` 权限。
 
 ## 手动测试
 

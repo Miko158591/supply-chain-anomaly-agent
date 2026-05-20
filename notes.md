@@ -189,5 +189,78 @@ NaN 与任何值比较都返回 False，突变永远检测不到。
 - [x] Few-Shot Examples（置信度 +12pp，突破 0.6 天花板）
 - [x] 数据充分性检查（daily 异常跳过 LLM，省 API 费）
 - [x] OpenClaw Skill 封装 + 飞书推送 + Excel 导出
+- [x] 飞书三层回复机制（"全部"/"详情"/"1-20" 命令识别 + 回复）
 - [ ] 可视化模块（visualizer.py）
 - [ ] CI/CD + 定时调度（AutoClaw cron）
+
+---
+
+# 2026-05-20 ~ 2026-05-21 开发笔记 — 飞书三层回复机制
+
+## 完成的工作
+
+### 1. 飞书事件订阅 Webhook 服务器（feishu_webhook.py）
+- Flask HTTP 服务器，接收飞书 `im.message.receive_v1` 事件回调
+- URL 验证（challenge-response）、消息解析（JSON → 文本 → 去 @提及 → 命令）
+- 复用 `handle_message()` + `message_formatter.py` 三层格式
+- 通过 `send_text_to_chat()` 把回复推回群聊
+
+### 2. 隧道方案探索（最终放弃）
+- **ngrok**：winget 安装 3.3.1 → 账户要求 3.20.0+ → 手动升级到 3.39.2 → 飞书国内服务器访问 `.ngrok-free.dev` 被墙
+- **localtunnel**：`npx localtunnel` 可用，但重启换 URL，且飞书无法访问
+- **localhost.run**：SSH 隧道 `ssh -R 80:localhost:8080 nokey@localhost.run`，同样被墙
+- **serveo**：`ssh -R ... serveo.net`，能通但 URL 随机，不够稳定
+- **结论**：所有境外隧道服务在飞书国内服务器侧都不可达。事件订阅模式不适合国内部署。
+
+### 3. API 轮询模式 — 最终方案（feishu_poll.py）
+- **核心思路**：不用飞书推消息过来，而是用飞书 API 主动去群里拉消息
+- `GET /open-apis/im/v1/messages` 每 10 秒拉取最新 10 条
+- 过滤条件：人类用户发送 + @了机器人 + 新消息（message_id > 上次处理记录）
+- 提取命令 → `handle_message()` → `send_text_to_chat()` 回复
+- Token 失效自动刷新，异常自动重试
+- **零依赖**：不需要公网 URL、隧道、事件订阅，只需 `im:message.group_msg` 权限
+
+### 4. Bug 修复
+- **路径 bug**：`load_latest_report()` 和 `feishu_event()` 中项目根目录少写一层 `os.path.dirname`，导致读 `skills/data/output/` 而非 `data/output/`
+- **多进程冲突**：8080 端口同时有 3 个旧版 webhook 进程监听，飞书请求打到旧进程返回"暂无日报"。`netstat -ano | findstr ":8080"` 定位后全杀重启。
+
+---
+
+## 关键设计决策
+
+### 判断 5：API 拉取 > 事件订阅（国内部署）
+事件订阅要求飞书服务器能访问我们的回调 URL。在国内网络环境下，所有境外隧道（ngrok/localtunnel/localhost.run/serveo）都不稳定或被墙。自建 frp 需要云服务器。API 拉取模式：
+- 出站请求（我们 → 飞书 API）不受墙影响
+- 不需要公网 IP/域名/SSL 证书
+- 10 秒轮询间隔对聊天机器人完全够用（用户不会感知延迟）
+- 飞书 API 消息列表接口免费，无额外成本
+
+### 判断 6：轮询 vs 持续 Webhook 服务器
+轮询是 pull 模式，webhook 是 push 模式。push 更实时但依赖网络拓扑；pull 更鲁棒但多 10 秒延迟。对于供应链日报的交互场景（用户回复"全部"看清单），10 秒延迟完全可接受。且轮询可以随时停启，不丢消息。
+
+---
+
+## 架构变化
+
+```
+旧：CSV → AnomalyDetector → AttributionAgent → 飞书推送（单向）
+                                  ↑
+                      飞书事件订阅（被墙，未通）
+
+新：CSV → AnomalyDetector → AttributionAgent → 飞书推送（日报）
+                                                  ↓
+                              用户 @机器人 回复命令
+                                                  ↓
+                    feishu_poll.py ← 飞书 API 拉取消息
+                         ↓
+                    handle_message() → 三层回复
+                         ↓
+                    send_text_to_chat() → 飞书群
+```
+
+## 当前运行状态
+
+- `feishu_poll.py` 后台常驻运行，10 秒间隔轮询
+- 启动方式：`python skills/supply-chain-monitor/feishu_poll.py --interval 10`
+- 飞书应用权限：`im:message.group_msg` 已开通
+- `feishu_webhook.py` 保留备用，但不再使用（需 tunnel）

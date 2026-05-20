@@ -27,6 +27,7 @@
 ```
 CSV → AnomalyDetector(Z-Score+IQR+MA+规则) → AttributionAgent(DeepSeek+SOP+Few-Shot)
   → 飞书三层消息(L1日报/L2摘要/L3详情) + JSON报告 + Excel导出
+  ← feishu_poll.py 拉取群消息 → handle_message() → 文本回复
 ```
 
 **关键模块**：
@@ -34,7 +35,12 @@ CSV → AnomalyDetector(Z-Score+IQR+MA+规则) → AttributionAgent(DeepSeek+SOP
 - `analysis/attribution_agent.py` — 归因引擎，含数据充分性检查 + Schema 校验 + 重试
 - `prompts/attribution_prompt.py` — System prompt + Few-Shot 示例 + JSON Schema
 - `knowledge/supply_chain_sop.md` — 10 条供应链异常处置 SOP
-- `skills/supply-chain-monitor/` — OpenClaw Skill 封装（monitor.py + formatter + session）
+- `skills/supply-chain-monitor/` — OpenClaw Skill 封装
+  - `monitor.py` — 主入口（检测 → 归因 → 推送）
+  - `message_formatter.py` — 三层消息格式（L1 日报 / L2 摘要 / L3 详情）
+  - `session_store.py` — SQLite 会话状态 + `handle_message()` 命令路由
+  - `feishu_poll.py` — API 拉取模式（轮询群消息，识别命令并回复，无需 tunnel）
+  - `feishu_webhook.py` — Webhook 模式（备用，需公网 URL/tunnel）
 
 ## 已完成里程碑
 
@@ -61,7 +67,7 @@ CSV → AnomalyDetector(Z-Score+IQR+MA+规则) → AttributionAgent(DeepSeek+SOP
 
 | 优先级 | 问题 | 状态 |
 |--------|------|------|
-| P1 | 飞书回复"1"/"详情"需 AutoClaw 路由消息到 skill（会话状态已实现，待对接） | 待解决 |
+| P1 | 飞书回复"1"/"详情"/"全部"命令识别 | 已解决（feishu_poll.py API 拉取模式，无需隧道） |
 | P2 | 日报卡片中"全部"清单 Order Id 显示 #?（format_all_anomalies 的 context 读取路径待确认） | 跟踪中 |
 | P3 | 退出码 128 TLS 偶发错误，重试可恢复 | 偶发 |
 | P3 | Windows 终端 GBK 编码导致 emoji 输出崩溃（已用 ASCII 替代） | 已解决 |

@@ -1,24 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-飞书推送消息格式化 — 三层信息密度设计。
+飞书推送消息格式化。
 
-Layer 1: 日报汇总（每天 8:00，不超过 500 字）
-Layer 2: 单条摘要（回复编号时，控制在 150 字内）
-Layer 3: 完整归因报告（回复"详情"时，含 evidence + 行动 + SOP）
+Layer 1: 日报卡片 — Top 5 高风险完整信息（根因 + 建议），不截断
+交互命令: "全部"/"高风险" → Excel 文件，"中风险" → Excel 文件
 """
 
 from typing import Any, Dict, List
 
 
 # ============================================================
-# Layer 1 — 日报汇总
+# Layer 1 — 日报卡片（Top 5 高风险，信息完整不截断）
 # ============================================================
 
 def format_daily_summary(stats: Dict[str, Any], reports: List[Dict],
                          report_date: str) -> str:
-    """日报汇总消息 — 3 秒可扫完。
+    """日报卡片 — Top 5 高风险，每条含根因 + 行动建议。
 
-    格式：概览统计 + 需立即关注 Top 3 + 交互指引。
+    Feishu lark_md div 上限约 5000 字符，5 条完整信息约 2000 字，安全。
     """
     n_total = stats.get("total_anomalies", 0)
     n_high = stats.get("severity_counts", {}).get("high", 0)
@@ -29,40 +28,61 @@ def format_daily_summary(stats: Dict[str, Any], reports: List[Dict],
     lines = [
         f"供应链异常日报 | {report_date}",
         "",
-        f"扫描 {n_total:,} 笔记录",
-        f"高风险 {n_high:,}  |  中风险 {n_med:,}  |  低风险 {n_low:,}  |  AI 归因 {n_llm}",
+        f"扫描 {n_total:,} 笔 | 高风险 {n_high:,} | 中风险 {n_med:,} | 低风险 {n_low:,} | AI 归因 {n_llm}",
         "",
-        "【需关注】",
+        "【Top 5 高风险异常】",
+        "",
     ]
 
-    # Top 3 — 只取高风险中有归因的
+    # 取高风险 LLM 归因报告，按置信度降序
     llm_reports = [r for r in reports
                    if "error" not in r and r.get("_meta", {}).get("data_sufficient") is not False]
-    top3 = [r for r in llm_reports if r.get("risk_level") == "high"][:3]
+    high_reports = [r for r in llm_reports if r.get("risk_level") == "high"]
+    high_reports.sort(key=lambda r: r.get("confidence", 0), reverse=True)
+    top5 = high_reports[:5]
 
-    # 如果高风险不足 3 个，用中风险补齐
-    if len(top3) < 3:
+    # 如果高风险不足 5 个，用中风险补齐
+    if len(top5) < 5:
         med_reports = [r for r in llm_reports if r.get("risk_level") == "medium"]
-        top3 += med_reports[:3 - len(top3)]
+        med_reports.sort(key=lambda r: r.get("confidence", 0), reverse=True)
+        top5 += med_reports[:5 - len(top5)]
 
-    for i, r in enumerate(top3, 1):
+    for i, r in enumerate(top5, 1):
         risk = r.get("risk_level", "?")
-        emoji = {"high": "1", "medium": "2", "low": "3"}.get(risk, "")
-        # 从 summary 中提取关键词（10 字以内）
-        summary = r.get("summary", "")
-        keyword = _extract_keyword(summary)
+        emoji = {"high": "\U0001F534", "medium": "\U0001F7E1", "low": "\U0001F7E2"}.get(risk, "")
         conf = r.get("confidence", 0)
-        lines.append(f"{i}. [{risk.upper()}] {keyword} | {conf:.0%}")
+        ctx = r.get("_meta", {}).get("anomaly_context", r.get("context", {}))
+        oid = ctx.get("Order Id", "?")
 
-    lines.append("")
-    lines.append("回复编号看摘要 | 回复\"全部\"看名单 | 回复\"导出\"下载 Excel")
+        lines.append(f"{emoji} **#{i} 订单 {oid}** | {risk.upper()} | 置信度 {conf:.0%}")
+
+        # 根因 + 建议
+        hyps = r.get("root_cause_hypotheses", [])
+        if hyps:
+            cause = hyps[0].get("cause", "")
+            if cause:
+                lines.append(f"> 原因: {cause}")
+        actions = r.get("recommended_actions", [])
+        if actions:
+            act = actions[0].get("action", "")
+            if act:
+                lines.append(f"> 建议: {act}")
+
+        lines.append("")
+
+    lines.append("---")
+    lines.append("回复 **\"高风险\"** 下载高风险异常 Excel")
+    lines.append("回复 **\"中风险\"** 下载中风险异常 Excel")
 
     return "\n".join(lines)
 
 
+# ============================================================
+# 辅助
+# ============================================================
+
 def _extract_keyword(summary: str, max_len: int = 12) -> str:
     """从 summary 中提取最核心的关键词短语。"""
-    # 取第一个逗号或句号之前的部分
     for sep in ["，", "。", "、", "——"]:
         if sep in summary:
             summary = summary.split(sep)[0]
@@ -70,69 +90,46 @@ def _extract_keyword(summary: str, max_len: int = 12) -> str:
 
 
 # ============================================================
-# Layer 2 — 单条异常摘要
+# 交互回复（编号 / 详情 → 文本消息）
 # ============================================================
 
 def format_anomaly_summary(report: Dict, index: int) -> str:
-    """单条异常摘要 — 控制在 150 字内，业务人员 10 秒读懂。
-
-    包含：异常指标数值 + 核心原因 + 首条建议。
-    """
+    """单条异常摘要 — 约 200 字，含根因 + 行动。"""
     risk = report.get("risk_level", "medium")
-    emoji = {"high": "1", "medium": "2", "low": "3"}.get(risk, "")
+    emoji = {"high": "\U0001F534", "medium": "\U0001F7E1", "low": "\U0001F7E2"}.get(risk, "")
     conf = report.get("confidence", 0)
-    summary = report.get("summary", "")
-    meta = report.get("_meta", {})
-
-    # 提取关键数据锚点
-    meta = report.get("_meta", {})
-    ctx = meta.get("anomaly_context", report.get("context", {}))
-    order_id = ctx.get("Order Id", "?")
+    ctx = report.get("_meta", {}).get("anomaly_context", report.get("context", {}))
+    oid = ctx.get("Order Id", "?")
 
     lines = [
-        f"异常 #{index}  [{risk.upper()}]",
-        f"订单 {order_id}  |  置信度 {conf:.0%}",
+        f"{emoji} 异常 #{index} [{risk.upper()}] 订单 {oid} | 置信度 {conf:.0%}",
         "",
     ]
 
-    # 根因（top 1，精简）
     hyps = report.get("root_cause_hypotheses", [])
     if hyps:
-        cause = hyps[0].get("cause", "")
-        lines.append(f"分析: {_shorten(cause, 80)}")
+        lines.append(f"原因: {hyps[0].get('cause', '?')}")
 
-    # 首条建议
     actions = report.get("recommended_actions", [])
     if actions:
         act = actions[0]
-        lines.append(f"行动: {_shorten(act.get('action', ''), 60)}")
+        lines.append(f"建议: {act.get('action', '?')}")
         owner = act.get("owner", "")
         if owner:
             lines.append(f"负责人: {owner}")
 
-    lines.append("")
-    lines.append("回复\"详情\"看完整归因报告")
-
     return "\n".join(lines)
 
 
-# ============================================================
-# Layer 3 — 完整归因报告
-# ============================================================
-
 def format_anomaly_detail(report: Dict, index: int) -> str:
-    """完整归因报告 — 含全部 evidence、建议、SOP 引用。
-
-    用飞书富文本分段，适合认真阅读场景。
-    """
+    """完整归因报告 — 含全部 evidence + 建议 + SOP。"""
     risk = report.get("risk_level", "medium")
     conf = report.get("confidence", 0)
     ctx = report.get("_meta", {}).get("anomaly_context", report.get("context", {}))
-    order_id = ctx.get("Order Id", "?")
+    oid = ctx.get("Order Id", "?")
 
     lines = [
-        f"完整归因报告 #{index}  [{risk.upper()}]",
-        f"订单 {order_id}  |  置信度 {conf:.0%}  |  {report.get('summary', '')[:50]}",
+        f"\U0001F4CB 完整归因 #{index} [{risk.upper()}] 订单 {oid} | 置信度 {conf:.0%}",
         "",
         "【根因分析】",
     ]
@@ -143,57 +140,12 @@ def format_anomaly_detail(report: Dict, index: int) -> str:
         lines.append(f"{i}. [{prob_bar}] {h.get('probability', 0):.0%}  {h.get('cause', '')}")
         for e in h.get("evidence", []):
             lines.append(f"   + {e}")
-        against = [a for a in h.get("against", []) if a]
-        for a in against:
-            lines.append(f"   - {a}")
         lines.append("")
 
     lines.append("【处置建议】")
-    actions = report.get("recommended_actions", [])
-    for i, a in enumerate(actions, 1):
+    for i, a in enumerate(report.get("recommended_actions", []), 1):
         sop = f" (参考 {a.get('sop_ref')})" if a.get('sop_ref') and a['sop_ref'] != 'null' else ""
         lines.append(f"{i}. [{a.get('priority', '?').upper()}] {a.get('action', '')}{sop}")
-        lines.append(f"   负责人: {a.get('owner', '?')}  |  预期: {a.get('expected_effect', '')}")
+        lines.append(f"   负责人: {a.get('owner', '?')}")
 
-    lines.append("")
-    lines.append(f"风险评估: {report.get('risk_rationale', '')}")
-    lines.append(f"置信度说明: {report.get('confidence_note', '')}")
-
-    return "\n".join(lines)
-
-
-# ============================================================
-# 辅助函数
-# ============================================================
-
-def _shorten(text: str, max_len: int) -> str:
-    """精简文本：优先在句号/逗号处截断。"""
-    if len(text) <= max_len:
-        return text
-    for sep in ["。", "！", "？", "；", "，", "、", " "]:
-        pos = text[:max_len].rfind(sep)
-        if pos > max_len * 0.6:
-            return text[:pos + len(sep)]
-    return text[:max_len - 1] + "…"
-
-
-def format_all_anomalies(reports: List[Dict], stats: Dict) -> str:
-    """回复"全部"时列出今天所有已归因异常。"""
-    llm_reports = [r for r in reports
-                   if "error" not in r and r.get("_meta", {}).get("data_sufficient") is not False]
-
-    if not llm_reports:
-        return "今日无已完成归因的异常。"
-
-    lines = [f"今日异常清单（共 {len(llm_reports)} 个）", ""]
-    for i, r in enumerate(llm_reports, 1):
-        risk = r.get("risk_level", "?")
-        ctx = r.get("_meta", {}).get("anomaly_context", r.get("context", {}))
-        oid = ctx.get("Order Id", "?")
-        keyword = _extract_keyword(r.get("summary", ""), 15)
-        conf = r.get("confidence", 0)
-        lines.append(f"{i}. [{risk.upper()}] 订单#{oid} | {keyword} | {conf:.0%}")
-
-    lines.append("")
-    lines.append("回复编号看摘要，回复\"详情\"看完整报告")
     return "\n".join(lines)

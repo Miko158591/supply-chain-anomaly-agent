@@ -27,6 +27,9 @@ plotly>=5.15.0
 pyyaml>=6.0
 python-dotenv>=1.0.0
 
+# ----- Web 服务 -----
+flask>=3.0.0            # 飞书事件订阅 Webhook 服务器
+
 # ----- 工具 -----
 tqdm>=4.65.0            # 进度条
 openpyxl>=3.1.0         # Excel 导出
