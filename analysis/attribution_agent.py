@@ -225,51 +225,48 @@ class AttributionAgent:
         -------
         List[Dict] — 归因报告列表。
         """
-        # 按 severity 优先：high > medium > low
+        # 严格按 severity 排序：high → medium → low，同级别按时间
         severity_order = {"high": 0, "medium": 1, "low": 2}
         anomalies = anomalies.copy()
         anomalies["_sev_rank"] = anomalies["severity"].map(severity_order).fillna(9)
         anomalies = anomalies.sort_values(["_sev_rank", "timestamp"])
 
-        # 采样策略：优先按订单去重（同一订单多个问题合并分析），
-        # 其次按 metric+severity 多样性保证覆盖
+        # 采样策略：severity 优先 > 订单去重 > metric 多样性
         sampled: List[Dict[str, Any]] = []
         seen_orders: set = set()
-        seen_combos: set = set()
 
         for _, row in anomalies.iterrows():
-            # 从 context 中提取 Order Id（如果有）
+            if len(sampled) >= max_samples:
+                break
+
             ctx = row.get("context", {})
             order_id = ctx.get("Order Id") if isinstance(ctx, dict) else None
-            combo_key = (row["metric"], row["severity"])
 
-            # 按订单去重：同一订单只分析一次（第一个异常）
+            # 同一订单不重复分析
             if order_id and order_id in seen_orders:
                 continue
 
-            if combo_key not in seen_combos and len(sampled) < max_samples:
-                seen_combos.add(combo_key)
-                if order_id:
-                    seen_orders.add(order_id)
-                anomaly_dict = row.to_dict()
+            if order_id:
+                seen_orders.add(order_id)
+            anomaly_dict = row.to_dict()
+            if verbose:
+                print(f"  分析: [{anomaly_dict['severity']}] {anomaly_dict['metric']} = {anomaly_dict['value']}  ...", end=" ")
+            try:
+                report = self.analyze(anomaly_dict, df, lookback_days)
+                sampled.append(report)
                 if verbose:
-                    print(f"  分析: [{anomaly_dict['severity']}] {anomaly_dict['metric']} = {anomaly_dict['value']}  ...", end=" ")
-                try:
-                    report = self.analyze(anomaly_dict, df, lookback_days)
-                    sampled.append(report)
-                    if verbose:
-                        meta = report.get("_meta", {})
-                        if meta.get("data_sufficient") is False:
-                            print(f"跳过 (数据不足: {'; '.join(meta.get('skip_reasons', []))})")
-                        else:
-                            print(f"ok (置信度={report.get('confidence', '?')})")
-                except Exception as e:
-                    if verbose:
-                        print(f"失败: {e}")
-                    sampled.append({
-                        "error": str(e),
-                        "_meta": {"anomaly_id": anomaly_dict.get("anomaly_id", "")},
-                    })
+                    meta = report.get("_meta", {})
+                    if meta.get("data_sufficient") is False:
+                        print(f"跳过 (数据不足: {'; '.join(meta.get('skip_reasons', []))})")
+                    else:
+                        print(f"ok (置信度={report.get('confidence', '?')})")
+            except Exception as e:
+                if verbose:
+                    print(f"失败: {e}")
+                sampled.append({
+                    "error": str(e),
+                    "_meta": {"anomaly_id": anomaly_dict.get("anomaly_id", "")},
+                })
 
             if len(sampled) >= max_samples:
                 break

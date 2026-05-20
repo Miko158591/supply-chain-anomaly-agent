@@ -175,16 +175,21 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
             "content": (
                 f"**共检出 {n_total:,} 个异常**，"
                 f"其中 🔴 高风险 {n_high:,} 个\n"
-                f"AI 归因 {n_llm} 个 | 数据不足降级 {n_degraded} 个"
+                f"AI 归因 {n_llm} 个 | 数据不足降级 {n_degraded} 个\n"
+                f"（仅展示 Top {min(n_llm + n_degraded, 5)} 个，"
+                f"全部高风险可导出：`python monitor.py --export high`）"
             ),
         },
     })
     elements.append({"tag": "hr"})
 
     # 每个归因结果
+    has_medium_in_mix = False
     for i, report in enumerate(llm_reports[:5]):
         meta = report.get("_meta", {})
         risk = report.get("risk_level", "medium")
+        if risk != "high":
+            has_medium_in_mix = True
         color = _severity_color(risk)
         summary = _truncate(report.get("summary", ""), 100)
 
@@ -192,12 +197,15 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
         actions = report.get("recommended_actions", [])
         top_action = actions[0]["action"] if actions else "人工排查"
 
+        # 中风险异常加标注
+        diversity_note = " *(多样性样本)*" if risk != "high" else ""
+
         elements.append({
             "tag": "div",
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    f"**{i+1}. [{risk.upper()}] {summary}**\n"
+                    f"**{i+1}. [{risk.upper()}]{diversity_note} {summary}**\n"
                     f"置信度: {report.get('confidence', 0):.0%} | "
                     f"建议: {_truncate(top_action, 60)}\n"
                     f"——{report.get('risk_rationale', '')[:80]}"
@@ -205,6 +213,15 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
             },
         })
         elements.append({"tag": "hr"})
+
+    if has_medium_in_mix:
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": "*中风险异常为增加归因多样性而纳入，不代表当前最高优先级",
+            },
+        })
 
     # 降级异常（数据不足）
     if degraded_reports:
@@ -380,6 +397,8 @@ def main():
                         help="跳过飞书推送")
     parser.add_argument("--date", type=str, default=None,
                         help="指定报告日期 (YYYY-MM-DD)，默认今天")
+    parser.add_argument("--export", type=str, default=None, choices=["high", "medium", "all"],
+                        help="导出异常到 Excel: high(高风险) / medium(中+高) / all(全部)")
     args = parser.parse_args()
 
     # ── 加载配置 ──
@@ -413,6 +432,32 @@ def main():
         lookback_days=args.lookback,
         max_anomalies=args.max_anomalies,
     )
+
+    # ── 导出 Excel（如果指定）──
+    excel_path = None
+    if args.export:
+        anomalies_df = result["anomalies_df"]
+        if args.export == "high":
+            to_export = anomalies_df[anomalies_df["severity"] == "high"]
+        elif args.export == "medium":
+            to_export = anomalies_df[anomalies_df["severity"].isin(["high", "medium"])]
+        else:
+            to_export = anomalies_df
+
+        excel_dir = os.path.join(PROJECT_ROOT, "data", "output")
+        excel_path = os.path.join(excel_dir, f"anomalies_{args.export}_{report_date}.xlsx")
+        os.makedirs(excel_dir, exist_ok=True)
+
+        # 展平 context dict 方便 Excel 阅读
+        export_df = to_export.copy()
+        export_df["context_str"] = export_df["context"].apply(
+            lambda c: json.dumps(c, ensure_ascii=False, default=str) if isinstance(c, dict) else str(c)
+        )
+        export_df = export_df.drop(columns=["context"], errors="ignore")
+        # 重命名列方便阅读
+        export_df.columns = [c.replace("_", " ").title() for c in export_df.columns]
+        export_df.to_excel(excel_path, index=False, engine="openpyxl")
+        logger.info(f"导出 {len(to_export):,} 条异常 → {excel_path}")
 
     # ── 保存报告 ──
     report_path = save_report(
