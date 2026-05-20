@@ -2,6 +2,7 @@
   "name": "supply-chain-monitor",
   "version": "1.0.0",
   "description": "供应链异常智能监控与归因 Skill",
+  "project_path": "D:/OneDrive/Desktop/supply product",
   "defaults": {
     "mode": "daily",
     "lookback_days": 1,
@@ -13,7 +14,7 @@
     "description": "每天早上 8:00 执行日报"
   },
   "feishu_card": {
-    "title_template": "📦 供应链异常日报 | {date}",
+    "title_template": "供应链异常日报 | {date}",
     "color_high": "red",
     "color_medium": "yellow",
     "color_low": "green"

@@ -25,8 +25,17 @@ import pandas as pd
 import requests
 import yaml
 
-# 确保项目根目录在 sys.path 中
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 确定项目根目录：优先读 config.json 中的 project_path，兜底按 skill 位置推算
+SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_JSON = os.path.join(SKILL_DIR, "config.json")
+try:
+    with open(CONFIG_JSON, "r", encoding="utf-8") as f:
+        skill_cfg = json.load(f)
+    PROJECT_ROOT = skill_cfg.get("project_path", "")
+    if not PROJECT_ROOT or not os.path.isdir(PROJECT_ROOT):
+        raise ValueError("project_path 无效")
+except Exception:
+    PROJECT_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))
 sys.path.insert(0, PROJECT_ROOT)
 
 from analysis.anomaly_detector import AnomalyDetector
