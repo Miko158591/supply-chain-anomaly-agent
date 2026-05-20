@@ -317,6 +317,43 @@ supply-chain-anomaly-agent/
 
 ## 使用方法
 
+### 接入飞书机器人（两种方式任选）
+
+**方式 A：企业自建应用（推荐，支持交互回复 + 文件推送）**
+
+1. [飞书开放平台](https://open.feishu.cn/app) → 创建企业应用 → 添加「机器人」能力
+2. 权限管理开通：`im:message`、`im:message:send_as_bot`、`im:file`
+3. 事件订阅 → 请求 URL 填 `https://{ngrok_url}/feishu/event`，订阅 `im.message.receive_v1`
+4. 将 `app_id`、`app_secret`、`chat_id` 填入 `config.yaml → notify.lark`
+
+```yaml
+notify:
+  lark:
+    app_id: "cli_xxx"        # 飞书应用 App ID
+    app_secret: "xxx"        # 飞书应用 App Secret
+    chat_id: "oc_xxx"        # 群聊 ID
+    enable_push: true
+```
+
+**方式 B：群机器人 Webhook（更简单，仅支持单向推送）**
+
+1. 飞书群设置 → 群机器人 → 添加自定义机器人 → 复制 Webhook URL
+2. 将 URL 填入 `config.yaml`
+
+```yaml
+notify:
+  lark:
+    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+    enable_push: true
+```
+
+| 能力 | 方式 A（企业应用） | 方式 B（Webhook） |
+|------|-------------------|-------------------|
+| 推送日报卡片 | ✅ | ✅ |
+| @机器人 交互回复 | ✅ | ❌ |
+| 发送 Excel 文件 | ✅ | ❌ |
+| 配置复杂度 | 较高 | 低 |
+
 ### 命令行
 
 ```bash
