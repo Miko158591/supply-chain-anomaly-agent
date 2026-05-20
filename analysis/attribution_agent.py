@@ -231,14 +231,26 @@ class AttributionAgent:
         anomalies["_sev_rank"] = anomalies["severity"].map(severity_order).fillna(9)
         anomalies = anomalies.sort_values(["_sev_rank", "timestamp"])
 
-        # 每种 metric + severity 组合各取至少 1 条，保证多样性
+        # 采样策略：优先按订单去重（同一订单多个问题合并分析），
+        # 其次按 metric+severity 多样性保证覆盖
         sampled: List[Dict[str, Any]] = []
+        seen_orders: set = set()
         seen_combos: set = set()
 
         for _, row in anomalies.iterrows():
-            key = (row["metric"], row["severity"])
-            if key not in seen_combos and len(sampled) < max_samples:
-                seen_combos.add(key)
+            # 从 context 中提取 Order Id（如果有）
+            ctx = row.get("context", {})
+            order_id = ctx.get("Order Id") if isinstance(ctx, dict) else None
+            combo_key = (row["metric"], row["severity"])
+
+            # 按订单去重：同一订单只分析一次（第一个异常）
+            if order_id and order_id in seen_orders:
+                continue
+
+            if combo_key not in seen_combos and len(sampled) < max_samples:
+                seen_combos.add(combo_key)
+                if order_id:
+                    seen_orders.add(order_id)
                 anomaly_dict = row.to_dict()
                 if verbose:
                     print(f"  分析: [{anomaly_dict['severity']}] {anomaly_dict['metric']} = {anomaly_dict['value']}  ...", end=" ")

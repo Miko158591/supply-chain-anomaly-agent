@@ -174,7 +174,7 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
             "tag": "lark_md",
             "content": (
                 f"**共检出 {n_total:,} 个异常**，"
-                f"其中 🔴 高风险 {n_high:,} 个\\n"
+                f"其中 🔴 高风险 {n_high:,} 个\n"
                 f"AI 归因 {n_llm} 个 | 数据不足降级 {n_degraded} 个"
             ),
         },
@@ -197,9 +197,9 @@ def build_feishu_card(reports: List[Dict], stats: Dict, report_date: str) -> Dic
             "text": {
                 "tag": "lark_md",
                 "content": (
-                    f"**{i+1}. [{risk.upper()}] {summary}**\\n"
+                    f"**{i+1}. [{risk.upper()}] {summary}**\n"
                     f"置信度: {report.get('confidence', 0):.0%} | "
-                    f"建议: {_truncate(top_action, 60)}\\n"
+                    f"建议: {_truncate(top_action, 60)}\n"
                     f"——{report.get('risk_rationale', '')[:80]}"
                 ),
             },
