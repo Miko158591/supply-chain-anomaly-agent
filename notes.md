@@ -432,6 +432,14 @@ CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek) → 
 - 证据充分性 2.0/5 是最大短板——归因 evidence 多引用 SOP 而非具体数据
 - 可尝试在 Few-Shot 示例中加入"坏案例"来改善证据质量
 
+### 6. 归因质量第二轮优化（证据+逻辑强化）
+- 评测 value 映射 bug 修复：延迟异常的 value 被错误设为 Benefit per order → 修正后 TC002 从 1/5 → 4/5
+- Context 过滤：`_build_order_context` 按 metric 类型过滤无关字段（延迟异常不显示利润数据）
+- Prompt 强化：每条 evidence 必须含具体数字 + 对比基准、推理链要求、指标聚焦铁律
+- 最终结果（V4 Pro 评委）：整体 3.4 | 证据 2.4 | 逻辑 3.8 | 行动 5.0 | 诚实 4.8
+- 对比原始：整体 3.2 → 3.4 (+0.2)、证据 2.0 → 2.4 (+0.4)、逻辑 3.4 → 3.8 (+0.4)
+- TC002（延迟异常）修复最显著：1/5 → 4/5
+
 ## 当前运行状态
 
 - Webhook + ngrok 后台运行中

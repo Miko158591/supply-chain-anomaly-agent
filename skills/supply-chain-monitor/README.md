@@ -170,9 +170,8 @@ cluster:
 |------|------|--------|------|
 | `deepseek-v4-flash` | 归因（主模型） | 100%（4096 tokens） | ~17s/条 |
 | `deepseek-v4-pro` | 评测评委（跨版本） | — | ~70s/条 |
-| `deepseek-chat` (V3) | 备选 / 低延迟 | ~95% | ~10s/条 |
 
-评委模型可在 `config.yaml → llm.judge` 自由切换为任何 OpenAI 兼容模型。
+归因模型和评委模型均可更换——在 `config.yaml → llm.deepseek` / `llm.judge` 中修改 `model` + `base_url`，支持任何 OpenAI 兼容 API（GPT-4o / Claude / GLM 等）。
 
 ## 评测
 

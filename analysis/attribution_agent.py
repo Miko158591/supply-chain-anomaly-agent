@@ -309,8 +309,8 @@ class AttributionAgent:
         # (A) 指标近期走势
         trend_table = self._build_trend_table(metric, anomaly_date, lookback_days)
 
-        # (B) 订单上下文
-        order_context = self._build_order_context(ctx)
+        # (B) 订单上下文（按 metric 过滤无关字段）
+        order_context = self._build_order_context(ctx, metric)
 
         # (C) 同维度对比
         comparison = self._build_comparison(metric, ctx, anomaly_date, lookback_days)
@@ -356,20 +356,50 @@ class AttributionAgent:
 
         return "\n".join(lines)
 
-    def _build_order_context(self, ctx: Dict[str, Any]) -> str:
-        """从异常记录的 context 中提取关联订单/产品/客户信息。"""
-        fields = [
+    def _build_order_context(self, ctx: Dict[str, Any], metric: str = "") -> str:
+        """从异常记录的 context 中提取关联订单/产品/客户信息。
+
+        按指标类型过滤：延迟异常只显示物流字段，利润异常只显示财务字段。
+        """
+        common = [
             ("Order Id", "订单ID"),
-            ("Order Item Id", "订单项ID"),
-            ("Product Name", "产品名称"),
             ("Category Name", "产品品类"),
             ("Market", "市场"),
-            ("Customer Segment", "客户段位"),
+            ("Order Region", "地区"),
+        ]
+        logistics = [
             ("Delivery Status", "交付状态"),
             ("Shipping Mode", "运输方式"),
-            ("Order Region", "地区"),
+        ]
+        financial = [
+            ("Order Item Id", "订单项ID"),
+            ("Product Name", "产品名称"),
+            ("Customer Segment", "客户段位"),
             ("Type", "支付方式"),
         ]
+
+        is_delay_metric = metric in ("shipping_delay_days", "daily_late_rate", "avg_delay")
+        is_profit_metric = metric in ("Benefit per order", "Order Item Profit Ratio",
+                                       "daily_avg_profit", "Order Item Total")
+
+        fields = common[:]
+        if is_delay_metric:
+            fields += logistics
+        elif is_profit_metric:
+            fields += financial
+        else:
+            fields += logistics + financial  # 兜底：全显示
+
+        # 始终排除可能误导的利润/延迟交叉字段
+        if is_delay_metric:
+            ctx = {k: v for k, v in ctx.items()
+                   if k not in ("Benefit per order", "Order Item Profit Ratio",
+                                "Order Item Total", "Sales per customer")}
+        elif is_profit_metric:
+            ctx = {k: v for k, v in ctx.items()
+                   if k not in ("shipping_delay_days", "Days for shipping (real)",
+                                "Days for shipment (scheduled)", "Delivery Status",
+                                "Shipping Mode", "Late_delivery_risk")}
         lines = []
         for key, label in fields:
             val = ctx.get(key)

@@ -178,13 +178,22 @@ def eval_attribution_quality(test_cases: List[Dict], config: dict,
 
     scores = []
     for tc in anomaly_cases[:5]:  # 取样 5 条控制成本
-        # 构造异常记录
+        # 构造异常记录（value 必须匹配 primary_metric）
         snapshot = tc["data_snapshot"]
+        metric = tc.get("expected", {}).get("primary_metric", "Benefit per order")
+        # 按 metric 取正确的 value 字段
+        metric_value_map = {
+            "Benefit per order": snapshot.get("Benefit per order", 0),
+            "shipping_delay_days": snapshot.get("shipping_delay_days", 0),
+            "Order Item Profit Ratio": snapshot.get("Order Item Profit Ratio", 0),
+            "Order Item Total": snapshot.get("Order Item Total", 0),
+        }
+        value = metric_value_map.get(metric, snapshot.get("Benefit per order", 0))
         anomaly = {
             "anomaly_id": tc["id"],
             "timestamp": "2026-05-21",
-            "metric": tc.get("expected", {}).get("primary_metric", "Benefit per order"),
-            "value": snapshot.get("Benefit per order", 0),
+            "metric": metric,
+            "value": value,
             "expected_range": [None, None],
             "severity": tc.get("expected", {}).get("severity", "high"),
             "detection_method": "manual_label",
