@@ -1,0 +1,21 @@
+{
+  "name": "supply-chain-monitor",
+  "version": "1.0.0",
+  "description": "供应链异常智能监控与归因 Skill",
+  "defaults": {
+    "mode": "daily",
+    "lookback_days": 1,
+    "max_anomalies": 5,
+    "notify": true
+  },
+  "schedule": {
+    "cron": "0 8 * * *",
+    "description": "每天早上 8:00 执行日报"
+  },
+  "feishu_card": {
+    "title_template": "📦 供应链异常日报 | {date}",
+    "color_high": "red",
+    "color_medium": "yellow",
+    "color_low": "green"
+  }
+}
