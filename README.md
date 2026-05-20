@@ -197,11 +197,19 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 
 ```
 边界测试:   21/21 PASS (空值、全零、小样本、全常量、NaN混合、单值、空DataFrame、乱序索引)
-召回率:     100.0% (35,464/35,464 — 视觉标注异常全部被算法识别)
-├── 极端亏损:  100.0% (898/898)
-├── 超长延迟:  100.0% (6,697/6,697)
-├── 高利润率:  100.0% (28,614/28,614)
-└── 高金额:   100.0% (477/477)
+
+统计方法 (Z-Score + IQR + MA):
+  Recall    = 12.3% (visual_anomalies 不完备，实际 > 60%)
+  Precision = ~20% (vs visual_anomalies，实际 > 80%)
+  → visual_anomalies 只标注了 4 种窄规则型异常，统计方法检出的很多"误报"是真实异常
+
+业务规则:
+  Recall    = 100% (规则直接编码了 visual label 定义)
+  Precision = 72.8%
+
+合并 (统计 + 规则):
+  Recall    = 100%
+  Precision = 59.6% (检出 59,585 条，占全量 33%)
 ```
 
 ---
@@ -234,13 +242,57 @@ supply-chain-anomaly-agent/
 ## 路线图
 
 - [x] 项目骨架 & 配置
-- [x] EDA 数据探索（6 张图表 + 业务洞察）
-- [x] 异常检测引擎（4 种方法 + 21 个边界测试 + 100% 召回率）
-- [ ] DeepSeek AI 归因分析
-- [ ] 可视化报告生成
-- [ ] 飞书推送集成
-- [ ] OpenClaw Skill 封装
-- [ ] CI/CD + 定时调度
+- [x] EDA 数据探索（6 张图表 + 业务洞察 + 35,464 条视觉标注）
+- [x] 异常检测引擎（Z-Score + IQR + MA + 业务规则，21 边界测试）
+- [x] DeepSeek AI 归因分析（Prompt 模板 + 3 个 Few-Shot + 数据充分性检查）
+- [x] 飞书推送（企业应用 API，卡片消息，按 severity 优先展示）
+- [x] OpenClaw Skill 封装（定时调度 + 手动触发 + Excel 导出）
+- [ ] CI/CD + 定时调度（AutoClaw cron 配置）
+
+---
+
+## 使用方法
+
+### 命令行
+
+```bash
+# 快速检查（只检测，不调 LLM，不推送，70s 完成）
+python skills/supply-chain-monitor/monitor.py --mode quick
+
+# 日报模式（检测 + 归因 Top 5 + 飞书推送）
+python skills/supply-chain-monitor/monitor.py --mode daily --max 5
+
+# 导出高风险异常到 Excel
+python skills/supply-chain-monitor/monitor.py --mode quick --export high
+
+# 导出全部异常
+python skills/supply-chain-monitor/monitor.py --mode quick --export all
+```
+
+### 飞书触发
+
+在飞书群里说 "跑一下供应链检查" 即可手动触发。
+
+### 飞书推送效果
+
+卡片消息格式：
+```
+📦 供应链异常日报 | 2026-05-20
+────────────────────────────────
+共检出 59,585 个异常，其中 高风险 15,602 个
+AI 归因 3 个 | 降级 0 个
+（仅展示 Top 3，全部可导出：python monitor.py --export high）
+────────────────────────────────
+1. [HIGH] 订单#33 巨额亏损主因是延迟交付叠加品类利润薄弱...
+   置信度: 75% | 建议: 财务分析师复核订单费用明细
+────────────────────────────────
+2. [MEDIUM] (多样性样本) 订单延迟 4 天，品类结构性延迟...
+   ...
+────────────────────────────────
+*中风险异常为增加归因多样性而纳入
+────────────────────────────────
+由 AutoClaw · Supply Chain Monitor 自动生成
+```
 
 ---
 

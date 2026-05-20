@@ -29,7 +29,14 @@
 - 容错：JSON 解析失败自动修复 + 最多 3 次重试 + Schema 校验
 - 5/5 归因成功，平均置信度 53%，JSON 一次通过
 
-### 6. 异常检测第二轮优化（Precision 优先）
+### 6. OpenClaw Skill 封装 + 飞书推送
+- 封装为 supply-chain-monitor Skill（SKILL.md + monitor.py + config.json）
+- 支持三种运行模式：quick / daily / full
+- 飞书企业应用推送（app_id + app_secret → tenant_access_token → 卡片消息）
+- Excel 导出：`--export high/medium/all`
+- Skill 已部署到 `~/.openclaw-autoclaw/skills/supply-chain-monitor/`
+
+### 7. 异常检测第二轮优化（Precision 优先）
 - 新增 Precision 指标，拆分统计方法 vs 业务规则
 - shipping_delay_days 从统计检测排除（离散分布，值域 -2~4）
 - IQR multiplier 1.5→2.0（降低误报）
@@ -181,7 +188,6 @@ NaN 与任何值比较都返回 False，突变永远检测不到。
 - [x] DeepSeek 归因分析 + SOP 知识库
 - [x] Few-Shot Examples（置信度 +12pp，突破 0.6 天花板）
 - [x] 数据充分性检查（daily 异常跳过 LLM，省 API 费）
+- [x] OpenClaw Skill 封装 + 飞书推送 + Excel 导出
 - [ ] 可视化模块（visualizer.py）
-- [ ] 飞书推送（notifier.py）
-- [ ] OpenClaw Skill 封装
-- [ ] 完整 Pipeline 串联
+- [ ] CI/CD + 定时调度（AutoClaw cron）
