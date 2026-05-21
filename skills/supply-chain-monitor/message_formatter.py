@@ -64,6 +64,18 @@ def format_daily_summary(stats: Dict[str, Any], reports: List[Dict],
             lines.append("")
 
     # ── Top 高风险异常 ──
+    # ── ROI 估算（What-if 分析）──
+    pattern_stats = stats.get("patterns", {})
+    if isinstance(pattern_stats, dict):
+        roi = pattern_stats.get("roi", {})
+        if roi and roi.get("total_potential_savings", 0) > 0:
+            total = roi.get("total_potential_savings", 0)
+            lines.append("")
+            lines.append(f"【潜在挽回金额】")
+            lines.append(f"> 优化后可挽回约 **${total:,.0f}**")
+            for b in roi.get("breakdown", [])[:3]:
+                lines.append(f"> {b['pattern_name']}: ${b['potential_savings']:,.0f}")
+
     lines.append("【高风险异常 Top 5】")
     lines.append("")
 
