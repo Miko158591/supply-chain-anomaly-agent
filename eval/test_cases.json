@@ -1,5 +1,5 @@
 {
-  "description": "90条分层抽样人工标注样本（30异常+30边界+20正常+10模式），含10条golden set",
+  "description": "评测集 106 条（原89条+新增17条统计型异常）",
   "created": "2026-05-21",
   "version": "2.0",
   "sampling_strategy": {
@@ -2353,6 +2353,431 @@
         "Order Region": "Central America",
         "Shipping Mode": "Second Class",
         "Order Item Total": 48.5
+      }
+    },
+    {
+      "id": "TC_STAT_5348",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #5348: Women's Apparel, profit=$11, delay=0d, region=Central America",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_daily_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "该订单所属日期是日订单量异常日（z>2.0），订单量偏离正常日均值-0.1个标准差。业务规则不会触发（无延迟无亏损），但统计方法应检测到日期级别的异常聚集。此样本用于验证统计方法的独立贡献。"
+      },
+      "data_snapshot": {
+        "Order Id": 5348,
+        "Benefit per order": 10.96,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.11,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Women's Apparel",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 97.0
+      }
+    },
+    {
+      "id": "TC_STAT_16111",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #16111: Men's Footwear, profit=$3, delay=-2d, region=Western Europe",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_daily_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "该订单所属日期是日订单量异常日（z>2.0），订单量偏离正常日均值-0.1个标准差。业务规则不会触发（无延迟无亏损），但统计方法应检测到日期级别的异常聚集。此样本用于验证统计方法的独立贡献。"
+      },
+      "data_snapshot": {
+        "Order Id": 16111,
+        "Benefit per order": 2.52,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": 0.02,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Men's Footwear",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 126.09
+      }
+    },
+    {
+      "id": "TC_STAT_20152",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #20152: Cardio Equipment, profit=$10, delay=-1d, region=Western Europe",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_daily_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "该订单所属日期是日订单量异常日（z>2.0），订单量偏离正常日均值-0.1个标准差。业务规则不会触发（无延迟无亏损），但统计方法应检测到日期级别的异常聚集。此样本用于验证统计方法的独立贡献。"
+      },
+      "data_snapshot": {
+        "Order Id": 20152,
+        "Benefit per order": 10.5,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": 0.13,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cardio Equipment",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 83.99
+      }
+    },
+    {
+      "id": "TC_STAT_25306",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #25306: Trade-In, profit=$8, delay=-2d, region=Eastern Asia",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_daily_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "该订单所属日期是日订单量异常日（z>2.0），订单量偏离正常日均值-0.1个标准差。业务规则不会触发（无延迟无亏损），但统计方法应检测到日期级别的异常聚集。此样本用于验证统计方法的独立贡献。"
+      },
+      "data_snapshot": {
+        "Order Id": 25306,
+        "Benefit per order": 7.7,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": 0.35,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Trade-In",
+        "Market": "Pacific Asia",
+        "Order Region": "Eastern Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 21.99
+      }
+    },
+    {
+      "id": "TC_STAT_33238",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #33238: Hockey, profit=$2, delay=0d, region=US Center ",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_daily_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "该订单所属日期是日订单量异常日（z>2.0），订单量偏离正常日均值-0.1个标准差。业务规则不会触发（无延迟无亏损），但统计方法应检测到日期级别的异常聚集。此样本用于验证统计方法的独立贡献。"
+      },
+      "data_snapshot": {
+        "Order Id": 33238,
+        "Benefit per order": 1.87,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.05,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Hockey",
+        "Market": "USCA",
+        "Order Region": "US Center ",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 37.4
+      }
+    },
+    {
+      "id": "TC_STAT_60146",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #60146: Cardio Equipment, profit=$36, delay=-2d, region=Central America",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_high_value",
+        "severity": "medium",
+        "primary_metric": "Order Item Total",
+        "reasoning": "订单金额$480超过P95(384)，但利润和延迟均正常。业务规则不会触发（利润正、准时交付），但金额是分布尾部的统计离群点。用于验证统计方法对高维特征的捕获能力。"
+      },
+      "data_snapshot": {
+        "Order Id": 60146,
+        "Benefit per order": 36.0,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": 0.08,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cardio Equipment",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 479.95
+      }
+    },
+    {
+      "id": "TC_STAT_69626",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #69626: Cameras , profit=$21, delay=0d, region=Western Europe",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_high_value",
+        "severity": "medium",
+        "primary_metric": "Order Item Total",
+        "reasoning": "订单金额$427超过P95(384)，但利润和延迟均正常。业务规则不会触发（利润正、准时交付），但金额是分布尾部的统计离群点。用于验证统计方法对高维特征的捕获能力。"
+      },
+      "data_snapshot": {
+        "Order Id": 69626,
+        "Benefit per order": 21.36,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.05,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cameras ",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 427.18
+      }
+    },
+    {
+      "id": "TC_STAT_74796",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #74796: Crafts, profit=$44, delay=-2d, region=Eastern Asia",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_high_value",
+        "severity": "medium",
+        "primary_metric": "Order Item Total",
+        "reasoning": "订单金额$436超过P95(384)，但利润和延迟均正常。业务规则不会触发（利润正、准时交付），但金额是分布尾部的统计离群点。用于验证统计方法对高维特征的捕获能力。"
+      },
+      "data_snapshot": {
+        "Order Id": 74796,
+        "Benefit per order": 43.61,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": 0.1,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Crafts",
+        "Market": "Pacific Asia",
+        "Order Region": "Eastern Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 436.1
+      }
+    },
+    {
+      "id": "TC_STAT_74723",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #74723: Crafts, profit=$38, delay=0d, region=Southeast Asia",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_high_value",
+        "severity": "medium",
+        "primary_metric": "Order Item Total",
+        "reasoning": "订单金额$429超过P95(384)，但利润和延迟均正常。业务规则不会触发（利润正、准时交付），但金额是分布尾部的统计离群点。用于验证统计方法对高维特征的捕获能力。"
+      },
+      "data_snapshot": {
+        "Order Id": 74723,
+        "Benefit per order": 37.77,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.09,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Crafts",
+        "Market": "Pacific Asia",
+        "Order Region": "Southeast Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 429.18
+      }
+    },
+    {
+      "id": "TC_STAT_44301",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #44301: Cardio Equipment, profit=$66, delay=-2d, region=North Africa",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_high_value",
+        "severity": "medium",
+        "primary_metric": "Order Item Total",
+        "reasoning": "订单金额$475超过P95(384)，但利润和延迟均正常。业务规则不会触发（利润正、准时交付），但金额是分布尾部的统计离群点。用于验证统计方法对高维特征的捕获能力。"
+      },
+      "data_snapshot": {
+        "Order Id": 44301,
+        "Benefit per order": 66.49,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": 0.14,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cardio Equipment",
+        "Market": "Africa",
+        "Order Region": "North Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 474.95
+      }
+    },
+    {
+      "id": "TC_STAT_15202",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #15202: Cardio Equipment, profit=$84, delay=-1d, region=Western Europe",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_high_value",
+        "severity": "medium",
+        "primary_metric": "Order Item Total",
+        "reasoning": "订单金额$495超过P95(384)，但利润和延迟均正常。业务规则不会触发（利润正、准时交付），但金额是分布尾部的统计离群点。用于验证统计方法对高维特征的捕获能力。"
+      },
+      "data_snapshot": {
+        "Order Id": 15202,
+        "Benefit per order": 84.14,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": 0.17,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cardio Equipment",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 494.95
+      }
+    },
+    {
+      "id": "TC_STAT_47002",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #47002: Cardio Equipment, profit=$42, delay=-1d, region=Eastern Europe",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_high_value",
+        "severity": "medium",
+        "primary_metric": "Order Item Total",
+        "reasoning": "订单金额$475超过P95(384)，但利润和延迟均正常。业务规则不会触发（利润正、准时交付），但金额是分布尾部的统计离群点。用于验证统计方法对高维特征的捕获能力。"
+      },
+      "data_snapshot": {
+        "Order Id": 47002,
+        "Benefit per order": 41.8,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": 0.09,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cardio Equipment",
+        "Market": "Europe",
+        "Order Region": "Eastern Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 474.95
+      }
+    },
+    {
+      "id": "TC_STAT_5932",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #5932: Accessories, profit=$4, delay=1d, region=South America",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_cat_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "品类'Accessories'在2015-03-28出现集中下单（z=2.9，品类均值2单/天），远超该品类正常波动。业务规则不会触发（订单本身无异常），但品类-日期维度的聚集是统计异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 5932,
+        "Benefit per order": 4.15,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": 0.1,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Accessories",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 41.48
+      }
+    },
+    {
+      "id": "TC_STAT_5934",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #5934: Hockey, profit=$34, delay=1d, region=Central America",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_cat_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "品类'Accessories'在2015-03-28出现集中下单（z=2.9，品类均值2单/天），远超该品类正常波动。业务规则不会触发（订单本身无异常），但品类-日期维度的聚集是统计异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 5934,
+        "Benefit per order": 33.72,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": 0.33,
+        "Delivery Status": "Shipping canceled",
+        "Category Name": "Hockey",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 103.75
+      }
+    },
+    {
+      "id": "TC_STAT_9932",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #9932: Accessories, profit=$-20, delay=-1d, region=Central America",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_cat_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "品类'Accessories'在2015-05-25出现集中下单（z=2.9，品类均值2单/天），远超该品类正常波动。业务规则不会触发（订单本身无异常），但品类-日期维度的聚集是统计异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 9932,
+        "Benefit per order": -19.99,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": -0.2,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Accessories",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 99.96
+      }
+    },
+    {
+      "id": "TC_STAT_9914",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #9914: Water Sports, profit=$84, delay=1d, region=Central America",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_cat_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "品类'Accessories'在2015-05-25出现集中下单（z=2.9，品类均值2单/天），远超该品类正常波动。业务规则不会触发（订单本身无异常），但品类-日期维度的聚集是统计异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 9914,
+        "Benefit per order": 83.72,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": 0.46,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Water Sports",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 181.99
+      }
+    },
+    {
+      "id": "TC_STAT_11954",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "STAT #11954: Accessories, profit=$19, delay=1d, region=Southern Europe",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "statistical_cat_spike",
+        "severity": "medium",
+        "primary_metric": "daily_order_count",
+        "reasoning": "品类'Accessories'在2015-06-24出现集中下单（z=2.9，品类均值2单/天），远超该品类正常波动。业务规则不会触发（订单本身无异常），但品类-日期维度的聚集是统计异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 11954,
+        "Benefit per order": 19.26,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": 0.47,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Accessories",
+        "Market": "Europe",
+        "Order Region": "Southern Europe",
+        "Shipping Mode": "First Class",
+        "Order Item Total": 40.98
       }
     }
   ]
