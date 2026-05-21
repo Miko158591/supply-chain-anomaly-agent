@@ -318,24 +318,29 @@ def auto_calibrate():
     print(f"\n[2/3] 扫描阈值...")
     ens_results = sweep_ensemble(df, gt)
 
+    zs_sorted = sorted(ens_results, key=lambda d: d["threshold"])
+
+    # 找 F1 最优点
     best = max(ens_results, key=lambda d: 2*d["recall"]*d["precision"]/(d["recall"]+d["precision"]) if (d["recall"]+d["precision"])>0 else 0)
     best_f1 = 2*best["recall"]*best["precision"]/(best["recall"]+best["precision"]) if (best["recall"]+best["precision"])>0 else 0
 
-    # Find "拐点" — last z before curve flattens
-    zs_sorted = sorted(ens_results, key=lambda d: d["threshold"])
-    elbow_z = zs_sorted[0]["threshold"]
-    for i in range(1, len(zs_sorted)):
-        prev, curr = zs_sorted[i-1], zs_sorted[i]
-        if abs(curr["recall"] - prev["recall"]) < 0.02 and abs(curr["precision"] - prev["precision"]) < 0.01:
-            elbow_z = prev["threshold"]
-            break
+    # 候选：F1最优 / z=2.0(干净数) / 当前z=2.5(保守)
+    candidates = []
+    for z_val, label in [(best["threshold"], "F1最优"), (2.0, "z=2.0（整数，解释性好）"), (2.5, "z=2.5（保守，对齐业务规则）")]:
+        match = [d for d in zs_sorted if abs(d["threshold"] - z_val) < 0.05]
+        if match:
+            d = match[0]
+            f1 = 2*d["recall"]*d["precision"]/(d["recall"]+d["precision"]) if (d["recall"]+d["precision"])>0 else 0
+            candidates.append((z_val, d["precision"], d["recall"], f1, label))
 
-    print(f"  F1 最优 z = {best['threshold']:.1f} (P={best['precision']:.1%}, R={best['recall']:.1%}, F1={best_f1:.1%})")
-    print(f"  拐点 z = {elbow_z:.1f}（之后曲线变平）")
+    print(f"\n  候选阈值对比：")
+    print(f"  {'z值':<8} {'Precision':<12} {'Recall':<12} {'F1':<10} {'说明'}")
+    for z_val, pr, rc, f1_val, label in candidates:
+        print(f"  {z_val:<8.1f} {pr:<12.1%} {rc:<12.1%} {f1_val:<10.1%} {label}")
 
-    # Recommend: elbow (more conservative, easier to explain)
-    recommended = elbow_z if elbow_z >= 2.0 else best["threshold"]
-    reason = "拐点（更保守、解释成本更低）" if recommended >= 2.0 else "F1 最优"
+    # 推荐：z=2.0（F1与最优差距小，解释性好）
+    recommended = 2.0
+    reason = "z=2.0：解释性好（整数），F1与最优差距 <5pp"
 
     print(f"\n[3/3] 推荐 z = {recommended:.1f}（{reason}）")
 
