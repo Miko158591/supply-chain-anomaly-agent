@@ -184,9 +184,8 @@ def plot_pr_curve(results: list, current: float, metric: str, output_path: str):
     ax.grid(True, alpha=0.3)
 
     # 固定坐标范围，让曲线占满整个图
-    ax.set_xlim(0.0, 1.0)
-    ax.set_ylim(0.0, 1.0)
-    ax.set_aspect("equal")
+    ax.set_xlim(0.80, 1.0)
+    ax.set_ylim(0.50, 0.60)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
