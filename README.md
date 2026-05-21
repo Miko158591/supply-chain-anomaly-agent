@@ -227,6 +227,8 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 - z=2.5 下界 = $-239，可捕获 ~2.5% 的订单（6,041 条极端亏损）
 - 这与业务规则中 `profit < -$200` 的阈值对齐
 
+> **接入新数据后如何重新校准阈值**：当前 z=2.5 是基于 DataCo 数据集（mean=$22.0, std=$104.4）推算的。接入公司真实数据后，运行 `python analysis/threshold_analysis.py` 将自动基于新数据分布重新计算 P/R 曲线、输出最优 z 值。然后在 `config.yaml` 中更新 `anomaly.zscore.threshold` 即可。同理，IQR 乘数、业务规则阈值都需要基于新数据的分位数重新推算。
+
 **消融实验发现**（106 条评测集，含 17 条统计型异常）：
 
 Z-Score 和 IQR 在**记录级**（单笔订单）独立贡献为 0——评测集里的异常订单全部被业务规则覆盖。但三层架构的互补发生在**维度层**：`detect_all` 同时运行了日聚合层检测（`daily_late_rate`/`daily_order_count`/`daily_avg_profit`），日订单量飙高等统计异常被这一层捕获。Ensemble F1 从 68.7%（89条）升至 75.2%（106条），增量来自日聚合层而非记录级统计方法。

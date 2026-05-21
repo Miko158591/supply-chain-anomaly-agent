@@ -202,10 +202,23 @@ def plot_ablation(zs, iqr, br, ens, output_path: str):
                 seen.add(key)
                 x.append(px)
                 y.append(py)
-        ax.scatter(x, y, c=color, marker=marker, s=80, zorder=3, label=label, edgecolors="white", linewidth=0.5)
+        # 对 (0,0) 点加微小偏移，避免重叠
+        plot_x, plot_y = list(x), list(y)
+        for i in range(len(plot_x)):
+            if plot_x[i] == 0 and plot_y[i] == 0:
+                offset = 0.02 if "Z-Score" in label else (-0.02 if "IQR" in label else 0)
+                plot_y[i] = offset
+        ax.scatter(plot_x, plot_y, c=color, marker=marker, s=120, zorder=3, label=label,
+                   edgecolors="white", linewidth=0.8)
         if len(x) > 1:
             pts = sorted(zip(x, y))
             ax.plot([p[0] for p in pts], [p[1] for p in pts], color=color, linewidth=1.5, alpha=0.6)
+        # 标出 (0,0) 的方法名
+        if len(x) == 1 and x[0] == 0 and y[0] == 0:
+            offset_y = 0.04 if "Z-Score" in label else 0.06
+            ax.annotate(f"{label}\n(F1=0%)", (0, offset_y), fontsize=9,
+                        color=color, fontweight="bold", ha="center",
+                        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
 
     # 标注关键点
     # Z-Score 极值
