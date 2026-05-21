@@ -1,7 +1,14 @@
 {
-  "description": "供应链异常检测评测用例 — 50 个手工标注样本。anomaly=true 为真实异常，false 为正常样本。归因答案仅对 anomaly=true 的样本提供。",
+  "description": "90条分层抽样人工标注样本（30异常+30边界+20正常+10模式），含10条golden set",
   "created": "2026-05-21",
-  "version": "1.0",
+  "version": "2.0",
+  "sampling_strategy": {
+    "category_a_extreme_anomaly": "30条明确异常（延迟>=5天/利润<-$500/利润率<-1.0/延迟+亏损复合），来自数据集真实极端值",
+    "category_b_borderline": "30条边界样本（利润-$200~$20/延迟2-4天/利润率-0.3~-0.05），模糊区间的困难样本",
+    "category_c_normal": "20条明确正常（准时交付+利润$20-$80+正常利润率0.1-0.4），用于Precision验证",
+    "category_d_pattern": "10条特殊模式（品类集中+区域集中），验证聚类准确性",
+    "golden_set": "保留原10条作为golden set（golden_set=true标记），不参与统计抽样"
+  },
   "test_cases": [
     {
       "id": "TC001",
@@ -11,8 +18,18 @@
         "is_anomaly": true,
         "primary_metric": "Benefit per order",
         "severity": "high",
-        "root_cause_keywords": ["延迟", "运费", "补贴", "亏损"],
-        "action_keywords": ["财务", "费用明细", "折扣", "复核"]
+        "root_cause_keywords": [
+          "延迟",
+          "运费",
+          "补贴",
+          "亏损"
+        ],
+        "action_keywords": [
+          "财务",
+          "费用明细",
+          "折扣",
+          "复核"
+        ]
       },
       "data_snapshot": {
         "Order Id": 77202,
@@ -23,7 +40,8 @@
         "Category Name": "Fishing",
         "Market": "LATAM",
         "Order Region": "South America"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC002",
@@ -33,8 +51,19 @@
         "is_anomaly": true,
         "primary_metric": "shipping_delay_days",
         "severity": "high",
-        "root_cause_keywords": ["结构性延迟", "品类", "仓库", "拣货", "SKU"],
-        "action_keywords": ["出库", "货位", "扫描", "品类"]
+        "root_cause_keywords": [
+          "结构性延迟",
+          "品类",
+          "仓库",
+          "拣货",
+          "SKU"
+        ],
+        "action_keywords": [
+          "出库",
+          "货位",
+          "扫描",
+          "品类"
+        ]
       },
       "data_snapshot": {
         "Order Id": 75939,
@@ -45,7 +74,8 @@
         "Category Name": "Men's Footwear",
         "Shipping Mode": "Standard Class",
         "Market": "LATAM"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC003",
@@ -55,8 +85,18 @@
         "is_anomaly": true,
         "primary_metric": "Order Item Profit Ratio",
         "severity": "low",
-        "root_cause_keywords": ["成本数据", "定价", "采购", "缺失"],
-        "action_keywords": ["核查", "售价", "成本", "定价"]
+        "root_cause_keywords": [
+          "成本数据",
+          "定价",
+          "采购",
+          "缺失"
+        ],
+        "action_keywords": [
+          "核查",
+          "售价",
+          "成本",
+          "定价"
+        ]
       },
       "data_snapshot": {
         "Order Id": 1360,
@@ -67,7 +107,8 @@
         "Category Name": "Cardio Equipment",
         "Customer Segment": "Consumer",
         "Order Item Total": 327.75
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC004",
@@ -77,8 +118,18 @@
         "is_anomaly": true,
         "primary_metric": "Benefit per order",
         "severity": "high",
-        "root_cause_keywords": ["延迟", "运费", "品类利润", "亏损"],
-        "action_keywords": ["复核", "费用", "品类", "定价"]
+        "root_cause_keywords": [
+          "延迟",
+          "运费",
+          "品类利润",
+          "亏损"
+        ],
+        "action_keywords": [
+          "复核",
+          "费用",
+          "品类",
+          "定价"
+        ]
       },
       "data_snapshot": {
         "Order Id": 64,
@@ -89,7 +140,8 @@
         "Category Name": "Women's Apparel",
         "Market": "Europe",
         "Order Region": "Western Europe"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC005",
@@ -99,19 +151,31 @@
         "is_anomaly": true,
         "primary_metric": "Benefit per order",
         "severity": "high",
-        "root_cause_keywords": ["延迟", "亏损", "品类", "高价值", "折扣"],
-        "action_keywords": ["复核", "费用", "折扣", "运费"]
+        "root_cause_keywords": [
+          "延迟",
+          "亏损",
+          "品类",
+          "高价值",
+          "折扣"
+        ],
+        "action_keywords": [
+          "复核",
+          "费用",
+          "折扣",
+          "运费"
+        ]
       },
       "data_snapshot": {
         "Order Id": 25042,
         "Benefit per order": -1192.38,
         "shipping_delay_days": 3,
-        "Order Item Profit Ratio": -1.70,
+        "Order Item Profit Ratio": -1.7,
         "Delivery Status": "Late delivery",
         "Category Name": "Cleats",
         "Order Item Total": 549.99,
         "Market": "Pacific"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC006",
@@ -121,8 +185,18 @@
         "is_anomaly": true,
         "primary_metric": "Benefit per order",
         "severity": "high",
-        "root_cause_keywords": ["定价", "折扣", "成本", "采购"],
-        "action_keywords": ["复核", "定价", "成本", "折扣"]
+        "root_cause_keywords": [
+          "定价",
+          "折扣",
+          "成本",
+          "采购"
+        ],
+        "action_keywords": [
+          "复核",
+          "定价",
+          "成本",
+          "折扣"
+        ]
       },
       "data_snapshot": {
         "Order Id": 99876,
@@ -131,9 +205,10 @@
         "Order Item Profit Ratio": -2.75,
         "Delivery Status": "Shipping on time",
         "Category Name": "Electronics",
-        "Order Item Total": 1899.00,
+        "Order Item Total": 1899.0,
         "Market": "US"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC007",
@@ -149,9 +224,10 @@
         "Order Item Profit Ratio": 0.27,
         "Delivery Status": "Shipping on time",
         "Category Name": "Cleats",
-        "Order Item Total": 183.10,
+        "Order Item Total": 183.1,
         "Shipping Mode": "Standard Class"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC008",
@@ -162,14 +238,15 @@
       },
       "data_snapshot": {
         "Order Id": 50002,
-        "Benefit per order": 7.00,
+        "Benefit per order": 7.0,
         "shipping_delay_days": 1,
         "Order Item Profit Ratio": 0.08,
         "Delivery Status": "Shipping on time",
         "Category Name": "Fishing",
-        "Order Item Total": 45.50,
+        "Order Item Total": 45.5,
         "Shipping Mode": "First Class"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC009",
@@ -179,19 +256,30 @@
         "is_anomaly": true,
         "primary_metric": "Order Item Profit Ratio",
         "severity": "low",
-        "root_cause_keywords": ["利润率", "定价", "成本", "异常偏高"],
-        "action_keywords": ["核查", "售价", "定价", "成本基准"]
+        "root_cause_keywords": [
+          "利润率",
+          "定价",
+          "成本",
+          "异常偏高"
+        ],
+        "action_keywords": [
+          "核查",
+          "售价",
+          "定价",
+          "成本基准"
+        ]
       },
       "data_snapshot": {
         "Order Id": 50003,
-        "Order Item Profit Ratio": 0.50,
-        "Benefit per order": 128.40,
+        "Order Item Profit Ratio": 0.5,
+        "Benefit per order": 128.4,
         "shipping_delay_days": 0,
         "Delivery Status": "Shipping on time",
         "Category Name": "Water Sports",
-        "Order Item Total": 456.00,
+        "Order Item Total": 456.0,
         "Market": "LATAM"
-      }
+      },
+      "golden_set": true
     },
     {
       "id": "TC010",
@@ -203,13 +291,2068 @@
       },
       "data_snapshot": {
         "Order Id": 50004,
-        "Benefit per order": -50.00,
+        "Benefit per order": -50.0,
         "shipping_delay_days": 2,
-        "Order Item Profit Ratio": -0.10,
+        "Order Item Profit Ratio": -0.1,
         "Delivery Status": "Late delivery",
         "Category Name": "Men's Footwear",
-        "Order Item Total": 220.00,
+        "Order Item Total": 220.0,
         "Shipping Mode": "First Class"
+      },
+      "golden_set": true
+    },
+    {
+      "id": "TC11936",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#11936 delay=0d profit=$-707 ratio=-1.77 Fishing Shipping on time",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$707远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 11936,
+        "Benefit per order": -706.76,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -1.77,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Fishing",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 399.98
+      }
+    },
+    {
+      "id": "TC37128",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#37128 delay=2d profit=$-577 ratio=-1.55 Fishing Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$577远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 37128,
+        "Benefit per order": -576.57,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -1.55,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "USCA",
+        "Order Region": "West of USA ",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 371.98
+      }
+    },
+    {
+      "id": "TC55345",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#55345 delay=1d profit=$-501 ratio=-1.57 Fishing Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$501远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 55345,
+        "Benefit per order": -501.41,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -1.57,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "First Class",
+        "Order Item Total": 319.98
+      }
+    },
+    {
+      "id": "TC4113",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#4113 delay=0d profit=$-739 ratio=-2.65 Camping & Hiking Shipping on time",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$739远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 4113,
+        "Benefit per order": -739.3,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -2.65,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Camping & Hiking",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 278.98
+      }
+    },
+    {
+      "id": "TC28136",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#28136 delay=-2d profit=$-866 ratio=-1.75 Cardio Equipment Advance shipping",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$866远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 28136,
+        "Benefit per order": -866.16,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": -1.75,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cardio Equipment",
+        "Market": "Pacific Asia",
+        "Order Region": "Southeast Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 494.95
+      }
+    },
+    {
+      "id": "TC5003",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#5003 delay=0d profit=$-504 ratio=-1.75 Cardio Equipment Shipping on time",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$504远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 5003,
+        "Benefit per order": -503.95,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -1.75,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cardio Equipment",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 287.97
+      }
+    },
+    {
+      "id": "TC47057",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#47057 delay=-1d profit=$-884 ratio=-2.60 Fishing Advance shipping",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$884远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 47057,
+        "Benefit per order": -883.96,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": -2.6,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Fishing",
+        "Market": "Africa",
+        "Order Region": "Southern Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 339.98
+      }
+    },
+    {
+      "id": "TC59879",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#59879 delay=1d profit=$-685 ratio=-2.75 Camping & Hiking Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$685远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 59879,
+        "Benefit per order": -684.7,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -2.75,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Camping & Hiking",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 248.98
+      }
+    },
+    {
+      "id": "TC27012",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#27012 delay=1d profit=$-574 ratio=-1.65 Fishing Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$574远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 27012,
+        "Benefit per order": -574.17,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -1.65,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "Pacific Asia",
+        "Order Region": "Oceania",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 347.98
+      }
+    },
+    {
+      "id": "TC44891",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#44891 delay=-2d profit=$-540 ratio=-1.50 Fishing Advance shipping",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$540远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 44891,
+        "Benefit per order": -539.97,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": -1.5,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Fishing",
+        "Market": "Africa",
+        "Order Region": "North Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 359.98
+      }
+    },
+    {
+      "id": "TC18521",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#18521 delay=0d profit=$-161 ratio=-1.55 Men's Footwear Shipping canceled",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.55远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 18521,
+        "Benefit per order": -161.19,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -1.55,
+        "Delivery Status": "Shipping canceled",
+        "Category Name": "Men's Footwear",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Same Day",
+        "Order Item Total": 103.99
+      }
+    },
+    {
+      "id": "TC45804",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#45804 delay=1d profit=$-229 ratio=-1.55 Cleats Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.55远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 45804,
+        "Benefit per order": -228.74,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -1.55,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Market": "Africa",
+        "Order Region": "West Africa",
+        "Shipping Mode": "First Class",
+        "Order Item Total": 147.58
+      }
+    },
+    {
+      "id": "TC48462",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#48462 delay=-1d profit=$-432 ratio=-1.80 Women's Apparel Advance shipping",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.80远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 48462,
+        "Benefit per order": -432.0,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": -1.8,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Women's Apparel",
+        "Market": "Africa",
+        "Order Region": "West Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 240.0
+      }
+    },
+    {
+      "id": "TC7225",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#7225 delay=2d profit=$-90 ratio=-1.50 Accessories Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.50远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 7225,
+        "Benefit per order": -89.96,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -1.5,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Accessories",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 59.98
+      }
+    },
+    {
+      "id": "TC62316",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#62316 delay=0d profit=$-432 ratio=-1.50 Boxing & MMA Shipping on time",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.50远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 62316,
+        "Benefit per order": -431.95,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -1.5,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Boxing & MMA",
+        "Market": "Europe",
+        "Order Region": "Northern Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 287.97
+      }
+    },
+    {
+      "id": "TC8080",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#8080 delay=4d profit=$-588 ratio=-1.50 Fishing Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$588远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 8080,
+        "Benefit per order": -587.97,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": -1.5,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 391.98
+      }
+    },
+    {
+      "id": "TC60340",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#60340 delay=4d profit=$-405 ratio=-1.55 Camping & Hiking Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.55远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 60340,
+        "Benefit per order": -404.52,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": -1.55,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Camping & Hiking",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 260.98
+      }
+    },
+    {
+      "id": "TC44429",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#44429 delay=3d profit=$-309 ratio=-1.70 Indoor/Outdoor Games Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.70远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 44429,
+        "Benefit per order": -309.28,
+        "shipping_delay_days": 3,
+        "Order Item Profit Ratio": -1.7,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "Pacific Asia",
+        "Order Region": "West Asia",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 181.93
+      }
+    },
+    {
+      "id": "TC17979",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#17979 delay=3d profit=$-331 ratio=-1.75 Women's Apparel Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_ratio",
+        "severity": "high",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-1.75远低于正常范围下界(-0.34)，收入远不抵成本。可能是折扣叠加、运费补贴或成本数据错误导致。"
+      },
+      "data_snapshot": {
+        "Order Id": 17979,
+        "Benefit per order": -330.75,
+        "shipping_delay_days": 3,
+        "Order Item Profit Ratio": -1.75,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Women's Apparel",
+        "Market": "Europe",
+        "Order Region": "Northern Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 189.0
+      }
+    },
+    {
+      "id": "TC63550",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#63550 delay=4d profit=$-647 ratio=-2.45 Cardio Equipment Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "extreme_loss",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "单笔亏损$647远超正常阈值(-$200)，为数据集中极端亏损样本。该订单收入远不抵成本，可能是折扣叠加、运费补贴失控或采购成本错误。"
+      },
+      "data_snapshot": {
+        "Order Id": 63550,
+        "Benefit per order": -646.74,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": -2.45,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cardio Equipment",
+        "Market": "Europe",
+        "Order Region": "Southern Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 263.97
+      }
+    },
+    {
+      "id": "TC38520",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#38520 delay=0d profit=$7 ratio=0.06 Cleats Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$7处于边界(亏损但未达-$200阈值)，延迟0天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 38520,
+        "Benefit per order": 7.33,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.06,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cleats",
+        "Market": "USCA",
+        "Order Region": "West of USA ",
+        "Shipping Mode": "Same Day",
+        "Order Item Total": 116.38
+      }
+    },
+    {
+      "id": "TC22016",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#22016 delay=-2d profit=$-42 ratio=-0.23 Water Sports Advance shipping",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-42处于边界(亏损但未达-$200阈值)，延迟-2天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 22016,
+        "Benefit per order": -41.85,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": -0.23,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Water Sports",
+        "Market": "Pacific Asia",
+        "Order Region": "Southeast Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 185.99
+      }
+    },
+    {
+      "id": "TC12307",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#12307 delay=1d profit=$-1 ratio=-0.01 Men's Footwear Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-1处于边界(亏损但未达-$200阈值)，延迟1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 12307,
+        "Benefit per order": -1.39,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -0.01,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Men's Footwear",
+        "Market": "Europe",
+        "Order Region": "Northern Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 106.59
+      }
+    },
+    {
+      "id": "TC50385",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#50385 delay=1d profit=$-35 ratio=-0.24 Cleats Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-35处于边界(亏损但未达-$200阈值)，延迟1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 50385,
+        "Benefit per order": -34.68,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -0.24,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Market": "Africa",
+        "Order Region": "West Africa",
+        "Shipping Mode": "First Class",
+        "Order Item Total": 147.58
+      }
+    },
+    {
+      "id": "TC44424",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#44424 delay=1d profit=$-7 ratio=-0.18 Hockey Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-7处于边界(亏损但未达-$200阈值)，延迟1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 44424,
+        "Benefit per order": -7.44,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -0.18,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Hockey",
+        "Market": "Africa",
+        "Order Region": "North Africa",
+        "Shipping Mode": "First Class",
+        "Order Item Total": 42.5
+      }
+    },
+    {
+      "id": "TC49139",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#49139 delay=1d profit=$6 ratio=0.13 Indoor/Outdoor Games Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$6处于边界(亏损但未达-$200阈值)，延迟1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 49139,
+        "Benefit per order": 5.69,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": 0.13,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "Africa",
+        "Order Region": "West Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 45.48
+      }
+    },
+    {
+      "id": "TC59162",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#59162 delay=-1d profit=$18 ratio=0.09 Trade-In Advance shipping",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$18处于边界(亏损但未达-$200阈值)，延迟-1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 59162,
+        "Benefit per order": 18.05,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": 0.09,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Trade-In",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 207.49
+      }
+    },
+    {
+      "id": "TC1237",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#1237 delay=-1d profit=$10 ratio=0.32 Shop By Sport Advance shipping",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$10处于边界(亏损但未达-$200阈值)，延迟-1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 1237,
+        "Benefit per order": 9.6,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": 0.32,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Shop By Sport",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 29.99
+      }
+    },
+    {
+      "id": "TC66658",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#66658 delay=0d profit=$10 ratio=0.10 Golf Apparel Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$10处于边界(亏损但未达-$200阈值)，延迟0天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 66658,
+        "Benefit per order": 10.44,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.1,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Golf Apparel",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 104.39
+      }
+    },
+    {
+      "id": "TC24048",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#24048 delay=1d profit=$-5 ratio=-0.05 Women's Apparel Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-5处于边界(亏损但未达-$200阈值)，延迟1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 24048,
+        "Benefit per order": -4.73,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -0.05,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Women's Apparel",
+        "Market": "Pacific Asia",
+        "Order Region": "Southeast Asia",
+        "Shipping Mode": "First Class",
+        "Order Item Total": 94.5
+      }
+    },
+    {
+      "id": "TC48083",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#48083 delay=2d profit=$47 ratio=0.27 Indoor/Outdoor Games Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$47为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 48083,
+        "Benefit per order": 46.96,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.27,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "Pacific Asia",
+        "Order Region": "West Asia",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 173.93
+      }
+    },
+    {
+      "id": "TC57460",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#57460 delay=2d profit=$50 ratio=0.20 Camping & Hiking Shipping canceled",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$50为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 57460,
+        "Benefit per order": 49.8,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.2,
+        "Delivery Status": "Shipping canceled",
+        "Category Name": "Camping & Hiking",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 248.98
+      }
+    },
+    {
+      "id": "TC2520",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#2520 delay=2d profit=$48 ratio=0.16 Camping & Hiking Shipping canceled",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$48为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 2520,
+        "Benefit per order": 48.41,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.16,
+        "Delivery Status": "Shipping canceled",
+        "Category Name": "Camping & Hiking",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 296.98
+      }
+    },
+    {
+      "id": "TC43105",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#43105 delay=4d profit=$5 ratio=0.09 Cleats Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟4天超出正常但未达极端(>=5天)，利润$5为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 43105,
+        "Benefit per order": 4.8,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": 0.09,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Market": "Pacific Asia",
+        "Order Region": "South Asia",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 54.59
+      }
+    },
+    {
+      "id": "TC30315",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#30315 delay=2d profit=$11 ratio=0.23 Indoor/Outdoor Games Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$11为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 30315,
+        "Benefit per order": 11.02,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.23,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "Pacific Asia",
+        "Order Region": "Oceania",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 48.98
+      }
+    },
+    {
+      "id": "TC56750",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#56750 delay=2d profit=$43 ratio=0.18 Cleats Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$43为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 56750,
+        "Benefit per order": 43.04,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.18,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 245.96
+      }
+    },
+    {
+      "id": "TC38245",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#38245 delay=2d profit=$7 ratio=0.16 Cleats Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$7为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 38245,
+        "Benefit per order": 7.33,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.16,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Market": "USCA",
+        "Order Region": "US Center ",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 44.99
+      }
+    },
+    {
+      "id": "TC51105",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#51105 delay=4d profit=$1 ratio=0.01 Men's Footwear Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟4天超出正常但未达极端(>=5天)，利润$1为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 51105,
+        "Benefit per order": 1.1,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": 0.01,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Men's Footwear",
+        "Market": "Pacific Asia",
+        "Order Region": "South Asia",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 110.49
+      }
+    },
+    {
+      "id": "TC39210",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#39210 delay=2d profit=$48 ratio=0.28 Water Sports Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$48为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 39210,
+        "Benefit per order": 47.6,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.28,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Water Sports",
+        "Market": "USCA",
+        "Order Region": "East of USA",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 169.99
+      }
+    },
+    {
+      "id": "TC49585",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#49585 delay=2d profit=$11 ratio=0.27 Indoor/Outdoor Games Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_moderate_delay",
+        "severity": "medium",
+        "primary_metric": "shipping_delay_days",
+        "expected_root_cause": "",
+        "reasoning": "延迟2天超出正常但未达极端(>=5天)，利润$11为正。可能是承运商轻度延误而非系统性问题。"
+      },
+      "data_snapshot": {
+        "Order Id": 49585,
+        "Benefit per order": 11.34,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": 0.27,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "Pacific Asia",
+        "Order Region": "South Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 41.98
+      }
+    },
+    {
+      "id": "TC52296",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#52296 delay=-2d profit=$-40 ratio=-0.22 Cardio Equipment Advance shipping",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-40处于边界(亏损但未达-$200阈值)，延迟-2天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 52296,
+        "Benefit per order": -40.36,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": -0.22,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cardio Equipment",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 185.98
+      }
+    },
+    {
+      "id": "TC44340",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#44340 delay=2d profit=$-5 ratio=-0.07 Shop By Sport Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_ratio",
+        "severity": "low",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-0.07处于边际亏损区域(-0.3~-0.05)，可能为定价策略导致的低毛利而非异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 44340,
+        "Benefit per order": -4.94,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -0.07,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Shop By Sport",
+        "Market": "Africa",
+        "Order Region": "West Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 69.58
+      }
+    },
+    {
+      "id": "TC36489",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#36489 delay=1d profit=$-29 ratio=-0.23 Shop By Sport Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-29处于边界(亏损但未达-$200阈值)，延迟1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 36489,
+        "Benefit per order": -28.79,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -0.23,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Shop By Sport",
+        "Market": "USCA",
+        "Order Region": "South of  USA ",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 127.97
+      }
+    },
+    {
+      "id": "TC12932",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#12932 delay=-1d profit=$-74 ratio=-0.22 Fishing Advance shipping",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-74处于边界(亏损但未达-$200阈值)，延迟-1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 12932,
+        "Benefit per order": -73.78,
+        "shipping_delay_days": -1,
+        "Order Item Profit Ratio": -0.22,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Fishing",
+        "Market": "Europe",
+        "Order Region": "Southern Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 339.98
+      }
+    },
+    {
+      "id": "TC28036",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#28036 delay=-2d profit=$-65 ratio=-0.16 Fishing Advance shipping",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-65处于边界(亏损但未达-$200阈值)，延迟-2天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 28036,
+        "Benefit per order": -65.2,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": -0.16,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Fishing",
+        "Market": "Pacific Asia",
+        "Order Region": "South Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 399.98
+      }
+    },
+    {
+      "id": "TC24494",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#24494 delay=1d profit=$-3 ratio=-0.09 Shop By Sport Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-3处于边界(亏损但未达-$200阈值)，延迟1天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 24494,
+        "Benefit per order": -2.99,
+        "shipping_delay_days": 1,
+        "Order Item Profit Ratio": -0.09,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Shop By Sport",
+        "Market": "Pacific Asia",
+        "Order Region": "South Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 33.99
+      }
+    },
+    {
+      "id": "TC26061",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#26061 delay=-2d profit=$-13 ratio=-0.06 Cleats Advance shipping",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-13处于边界(亏损但未达-$200阈值)，延迟-2天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 26061,
+        "Benefit per order": -12.93,
+        "shipping_delay_days": -2,
+        "Order Item Profit Ratio": -0.06,
+        "Delivery Status": "Advance shipping",
+        "Category Name": "Cleats",
+        "Market": "Pacific Asia",
+        "Order Region": "South Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 226.76
+      }
+    },
+    {
+      "id": "TC47768",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#47768 delay=0d profit=$-59 ratio=-0.24 Cleats Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-59处于边界(亏损但未达-$200阈值)，延迟0天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 47768,
+        "Benefit per order": -59.25,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -0.24,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cleats",
+        "Market": "Africa",
+        "Order Region": "East Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 248.96
+      }
+    },
+    {
+      "id": "TC11998",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#11998 delay=2d profit=$-20 ratio=-0.20 Indoor/Outdoor Games Late delivery",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_ratio",
+        "severity": "low",
+        "primary_metric": "Order Item Profit Ratio",
+        "expected_root_cause": "",
+        "reasoning": "利润率-0.20处于边际亏损区域(-0.3~-0.05)，可能为定价策略导致的低毛利而非异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 11998,
+        "Benefit per order": -19.79,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -0.2,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 98.96
+      }
+    },
+    {
+      "id": "TC50443",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#50443 delay=0d profit=$-31 ratio=-0.20 Shop By Sport Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "borderline_low_profit",
+        "severity": "low",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "利润$-31处于边界(亏损但未达-$200阈值)，延迟0天正常。需结合品类均值判断是否真正异常。"
+      },
+      "data_snapshot": {
+        "Order Id": 50443,
+        "Benefit per order": -31.35,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": -0.2,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Shop By Sport",
+        "Market": "Pacific Asia",
+        "Order Region": "West Asia",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 156.76
+      }
+    },
+    {
+      "id": "TC7972",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#7972 delay=0d profit=$21 ratio=0.39 Cleats Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$21在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 7972,
+        "Benefit per order": 21.29,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.39,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cleats",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Same Day",
+        "Order Item Total": 54.59
+      }
+    },
+    {
+      "id": "TC42403",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#42403 delay=0d profit=$30 ratio=0.25 Indoor/Outdoor Games Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$30在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 42403,
+        "Benefit per order": 29.99,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.25,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "Africa",
+        "Order Region": "Central Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 119.95
+      }
+    },
+    {
+      "id": "TC54843",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#54843 delay=0d profit=$66 ratio=0.34 Water Sports Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$66在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 54843,
+        "Benefit per order": 65.57,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.34,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Water Sports",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 193.99
+      }
+    },
+    {
+      "id": "TC43603",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#43603 delay=0d profit=$26 ratio=0.10 Camping & Hiking Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$26在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 43603,
+        "Benefit per order": 26.1,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.1,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Camping & Hiking",
+        "Market": "Africa",
+        "Order Region": "North Africa",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 260.98
+      }
+    },
+    {
+      "id": "TC4530",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#4530 delay=0d profit=$31 ratio=0.17 Water Sports Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$31在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 4530,
+        "Benefit per order": 30.6,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.17,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Water Sports",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Same Day",
+        "Order Item Total": 179.99
+      }
+    },
+    {
+      "id": "TC58987",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#58987 delay=0d profit=$71 ratio=0.27 Camping & Hiking Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$71在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 58987,
+        "Benefit per order": 71.28,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.27,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Camping & Hiking",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Same Day",
+        "Order Item Total": 263.98
+      }
+    },
+    {
+      "id": "TC8",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#8 delay=0d profit=$73 ratio=0.33 Cleats Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$73在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 8,
+        "Benefit per order": 73.11,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.33,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cleats",
+        "Market": "LATAM",
+        "Order Region": "South America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 224.96
+      }
+    },
+    {
+      "id": "TC53866",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#53866 delay=0d profit=$36 ratio=0.10 Fishing Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$36在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 53866,
+        "Benefit per order": 36.4,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.1,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Fishing",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 363.98
+      }
+    },
+    {
+      "id": "TC33833",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#33833 delay=0d profit=$31 ratio=0.11 Camping & Hiking Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$31在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 33833,
+        "Benefit per order": 30.51,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.11,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Camping & Hiking",
+        "Market": "USCA",
+        "Order Region": "East of USA",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 269.98
+      }
+    },
+    {
+      "id": "TC68108",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#68108 delay=0d profit=$64 ratio=0.34 Water Sports Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$64在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 68108,
+        "Benefit per order": 64.26,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.34,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Water Sports",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 188.99
+      }
+    },
+    {
+      "id": "TC4278",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#4278 delay=0d profit=$66 ratio=0.27 Camping & Hiking Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$66在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 4278,
+        "Benefit per order": 66.42,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.27,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Camping & Hiking",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 245.98
+      }
+    },
+    {
+      "id": "TC18656",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#18656 delay=0d profit=$25 ratio=0.28 Cleats Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$25在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 18656,
+        "Benefit per order": 25.2,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.28,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Cleats",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 89.99
+      }
+    },
+    {
+      "id": "TC12268",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#12268 delay=0d profit=$51 ratio=0.28 Water Sports Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$51在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 12268,
+        "Benefit per order": 50.96,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.28,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Water Sports",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 181.99
+      }
+    },
+    {
+      "id": "TC8641",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#8641 delay=0d profit=$43 ratio=0.27 Water Sports Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$43在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 8641,
+        "Benefit per order": 43.2,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.27,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Water Sports",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 159.99
+      }
+    },
+    {
+      "id": "TC31218",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#31218 delay=0d profit=$21 ratio=0.11 Women's Apparel Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$21在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 31218,
+        "Benefit per order": 21.02,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.11,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Women's Apparel",
+        "Market": "Pacific Asia",
+        "Order Region": "Oceania",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 186.0
+      }
+    },
+    {
+      "id": "TC51929",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#51929 delay=0d profit=$76 ratio=0.35 Women's Apparel Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$76在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 51929,
+        "Benefit per order": 76.13,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.35,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Women's Apparel",
+        "Market": "LATAM",
+        "Order Region": "Caribbean",
+        "Shipping Mode": "Same Day",
+        "Order Item Total": 217.5
+      }
+    },
+    {
+      "id": "TC41056",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#41056 delay=0d profit=$43 ratio=0.33 Men's Footwear Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$43在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 41056,
+        "Benefit per order": 42.9,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.33,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Men's Footwear",
+        "Market": "USCA",
+        "Order Region": "West of USA ",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 129.99
+      }
+    },
+    {
+      "id": "TC8328",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#8328 delay=0d profit=$23 ratio=0.27 Indoor/Outdoor Games Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$23在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 8328,
+        "Benefit per order": 22.67,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.27,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 83.97
+      }
+    },
+    {
+      "id": "TC5011",
+      "type": "normal",
+      "golden_set": false,
+      "description": "#5011 delay=0d profit=$41 ratio=0.38 Accessories Shipping on time",
+      "expected": {
+        "is_anomaly": false,
+        "anomaly_type": "normal",
+        "severity": "none",
+        "primary_metric": "none",
+        "expected_root_cause": "",
+        "reasoning": "正常订单：准时交付、利润$41在健康范围($20-$80)、利润率正常(0.1-0.4)。不应被任何检测方法标记为异常。用于验证Precision。"
+      },
+      "data_snapshot": {
+        "Order Id": 5011,
+        "Benefit per order": 41.23,
+        "shipping_delay_days": 0,
+        "Order Item Profit Ratio": 0.38,
+        "Delivery Status": "Shipping on time",
+        "Category Name": "Accessories",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 109.96
+      }
+    },
+    {
+      "id": "TC60118",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#60118 delay=2d profit=$-67 ratio=-0.17 Fishing Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "category_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "品类「Fishing」集中出现延迟2天+亏损$66的复合异常。Fishing是异常最集中的品类之一，代表品类系统性问题的模式。"
+      },
+      "data_snapshot": {
+        "Order Id": 60118,
+        "Benefit per order": -66.8,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -0.17,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 399.98
+      }
+    },
+    {
+      "id": "TC13390",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#13390 delay=2d profit=$-78 ratio=-0.67 Men's Footwear Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "category_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "品类「Men's Footwear」集中出现延迟2天+亏损$78的复合异常。Men's Footwear是异常最集中的品类之一，代表品类系统性问题的模式。"
+      },
+      "data_snapshot": {
+        "Order Id": 13390,
+        "Benefit per order": -78.03,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -0.67,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Men's Footwear",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 116.99
+      }
+    },
+    {
+      "id": "TC25870",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#25870 delay=4d profit=$-249 ratio=-0.73 Fishing Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "category_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "品类「Fishing」集中出现延迟4天+亏损$249的复合异常。Fishing是异常最集中的品类之一，代表品类系统性问题的模式。"
+      },
+      "data_snapshot": {
+        "Order Id": 25870,
+        "Benefit per order": -249.21,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": -0.73,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "Pacific Asia",
+        "Order Region": "Eastern Asia",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 339.98
+      }
+    },
+    {
+      "id": "TC29180",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#29180 delay=2d profit=$-130 ratio=-0.80 Cleats Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "category_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "品类「Cleats」集中出现延迟2天+亏损$129的复合异常。Cleats是异常最集中的品类之一，代表品类系统性问题的模式。"
+      },
+      "data_snapshot": {
+        "Order Id": 29180,
+        "Benefit per order": -129.58,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -0.8,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Market": "Pacific Asia",
+        "Order Region": "Oceania",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 161.97
+      }
+    },
+    {
+      "id": "TC21249",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#21249 delay=3d profit=$-65 ratio=-0.30 Cleats Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "category_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "品类「Cleats」集中出现延迟3天+亏损$64的复合异常。Cleats是异常最集中的品类之一，代表品类系统性问题的模式。"
+      },
+      "data_snapshot": {
+        "Order Id": 21249,
+        "Benefit per order": -64.79,
+        "shipping_delay_days": 3,
+        "Order Item Profit Ratio": -0.3,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Cleats",
+        "Market": "Pacific Asia",
+        "Order Region": "Oceania",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 215.96
+      }
+    },
+    {
+      "id": "TC35440",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#35440 delay=2d profit=$-84 ratio=-0.23 Fishing Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "category_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "品类「Fishing」集中出现延迟2天+亏损$83的复合异常。Fishing是异常最集中的品类之一，代表品类系统性问题的模式。"
+      },
+      "data_snapshot": {
+        "Order Id": 35440,
+        "Benefit per order": -83.88,
+        "shipping_delay_days": 2,
+        "Order Item Profit Ratio": -0.23,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Fishing",
+        "Market": "USCA",
+        "Order Region": "West of USA ",
+        "Shipping Mode": "Standard Class",
+        "Order Item Total": 359.98
+      }
+    },
+    {
+      "id": "TC15690",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#15690 delay=4d profit=$-2 ratio=-0.01 Water Sports Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "region_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "区域「Western Europe」集中出现高风险异常，该区域异常订单数显著高于全局均值，用于验证区域集中模式的聚类准确性。"
+      },
+      "data_snapshot": {
+        "Order Id": 15690,
+        "Benefit per order": -2.42,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": -0.01,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Water Sports",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 185.99
+      }
+    },
+    {
+      "id": "TC3875",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#3875 delay=4d profit=$-162 ratio=-0.66 Indoor/Outdoor Games Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "region_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "区域「Central America」集中出现高风险异常，该区域异常订单数显著高于全局均值，用于验证区域集中模式的聚类准确性。"
+      },
+      "data_snapshot": {
+        "Order Id": 3875,
+        "Benefit per order": -161.64,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": -0.66,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Indoor/Outdoor Games",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 244.9
+      }
+    },
+    {
+      "id": "TC16074",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#16074 delay=3d profit=$-70 ratio=-1.75 Shop By Sport Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "region_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "区域「Western Europe」集中出现高风险异常，该区域异常订单数显著高于全局均值，用于验证区域集中模式的聚类准确性。"
+      },
+      "data_snapshot": {
+        "Order Id": 16074,
+        "Benefit per order": -69.98,
+        "shipping_delay_days": 3,
+        "Order Item Profit Ratio": -1.75,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Shop By Sport",
+        "Market": "Europe",
+        "Order Region": "Western Europe",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 39.99
+      }
+    },
+    {
+      "id": "TC56975",
+      "type": "anomaly",
+      "golden_set": false,
+      "description": "#56975 delay=4d profit=$-11 ratio=-0.23 Women's Apparel Late delivery",
+      "expected": {
+        "is_anomaly": true,
+        "anomaly_type": "region_concentration",
+        "severity": "high",
+        "primary_metric": "Benefit per order",
+        "expected_root_cause": "",
+        "reasoning": "区域「Central America」集中出现高风险异常，该区域异常订单数显著高于全局均值，用于验证区域集中模式的聚类准确性。"
+      },
+      "data_snapshot": {
+        "Order Id": 56975,
+        "Benefit per order": -10.91,
+        "shipping_delay_days": 4,
+        "Order Item Profit Ratio": -0.23,
+        "Delivery Status": "Late delivery",
+        "Category Name": "Women's Apparel",
+        "Market": "LATAM",
+        "Order Region": "Central America",
+        "Shipping Mode": "Second Class",
+        "Order Item Total": 48.5
       }
     }
   ]
