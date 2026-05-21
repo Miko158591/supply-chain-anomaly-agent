@@ -35,7 +35,7 @@ CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek V4 Fl
 
 **关键模块**：
 - `analysis/anomaly_detector.py` — 检测引擎，4 种方法，59,585 条异常/次
-- `analysis/pattern_clusterer.py` — 模式聚类（3 种规则 + ROI 估算，潜在挽回 $206K）
+- `analysis/pattern_clusterer.py` — 模式聚类（3 种规则 + ROI 估算，潜在挽回 $156K）
 - `analysis/attribution_agent.py` — 归因引擎（Schema 校验 + 重试 + context 过滤）
 - `analysis/threshold_analysis.py` — 阈值敏感性分析 + PR 曲线生成
 - `prompts/attribution_prompt.py` — System prompt + Few-Shot + JSON Schema（v3 版）
@@ -57,7 +57,7 @@ CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek V4 Fl
 | DeepSeek 归因 | AttributionAgent、SOP 知识库、JSON Schema 校验 |
 | 飞书推送 + 交互 | Webhook 服务器、@机器人命令、Excel 文件推送 |
 | 归因质量优化 | 三版 prompt 迭代、句式多样性 2→4、证据 2.0→2.2 |
-| 异常模式聚类 | 3 种规则 + ROI 分析（$206K） |
+| 异常模式聚类 | 3 种规则 + ROI 分析（$156K） |
 | 评测体系 | 89 条分层标注 + V4 Pro 评委 + 跨模型对照实验 |
 | Docker + CI | Dockerfile/docker-compose + GitHub Actions + mypy |
 | PR 曲线 | Z-Score 阈值扫描、docs/images/pr_curve_zscore.png |
@@ -80,7 +80,7 @@ CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek V4 Fl
 | 检测 F1 | 66.7%（89 条，悲观下界） |
 | 归因整体 | 3.4/5（V4 Pro 评委） |
 | 证据充分性 | 2.2/5（prompt 触顶，瓶颈在数据粒度） |
-| ROI 潜在挽回 | $206,538/年 |
+| ROI 潜在挽回 | $156,139/年 |
 
 ## 当前任务
 
