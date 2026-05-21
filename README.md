@@ -90,7 +90,62 @@ cp config.example.yaml config.yaml
 #   - 异常检测阈值已用 DataCo 数据集推算好，可直接使用
 ```
 
-### 3. 下载数据 & 运行 EDA
+### 3. 接入你自己的数据与定时
+
+> 下载本项目后，只需 3 步即可接入你自己的供应链数据。
+
+**第一步：准备 CSV 数据**
+
+将你的 CSV 文件放入 `data/raw/` 目录。必须包含以下列（列名必须完全一致）：
+
+| 必需列 | 说明 | 示例值 |
+|--------|------|--------|
+| `Order Id` | 订单唯一标识 | `77202` |
+| `order date (DateOrders)` | 下单日期 | `2017-06-15` |
+| `Benefit per order` | 单笔利润（可负） | `-277.09` |
+| `Days for shipping (real)` | 实际运输天数 | `5` |
+| `Days for shipment (scheduled)` | 计划运输天数 | `3` |
+| `Order Item Profit Ratio` | 利润率 | `-1.65` |
+| `Order Item Total` | 订单金额 | `327.75` |
+| `Delivery Status` | 交付状态 | `Late delivery` |
+| `Category Name` | 产品品类 | `Fishing` |
+| `Market` | 市场 | `LATAM` |
+| `Shipping Mode` | 运输方式 | `Standard Class` |
+| `Order Region` | 地区 | `South America` |
+
+> 如果你的列名不同，在 `monitor.py → load_data()` 中做一次列名映射即可。
+
+**第二步：配置 API Key**
+
+```bash
+cp config.example.yaml config.yaml
+```
+
+编辑 `config.yaml`，填入你自己的 DeepSeek API Key（[免费注册](https://platform.deepseek.com)）：
+
+```yaml
+llm:
+  deepseek:
+    api_key: "sk-your-key-here"    # ← 改这里
+    model: "deepseek-v4-flash"      # 或换成 deepseek-chat / gpt-4o / claude 等
+```
+
+**第三步：设置定时推送（可选）**
+
+编辑 `skills/supply-chain-monitor/config.json`：
+
+```json
+{
+  "schedule": {
+    "cron": "0 8 * * *",
+    "description": "每天早上 8:00 自动推送日报"
+  }
+}
+```
+
+设为空字符串 `""` 则关闭定时，改为手动触发。
+
+### 4. 下载示例数据 & 运行 EDA
 
 ```bash
 # 配置 Kaggle API Key → https://www.kaggle.com/settings/account
@@ -104,7 +159,7 @@ unzip "data/raw/*.zip" -d data/raw/ && rm data/raw/*.zip
 python scripts/run_eda.py
 ```
 
-### 4. 运行异常检测
+### 5. 运行异常检测
 
 ```bash
 # 运行完整测试套件（21 边界测试 + 召回率验证）
