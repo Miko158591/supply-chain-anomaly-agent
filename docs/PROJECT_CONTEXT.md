@@ -8,7 +8,7 @@
 
 **数据**：Kaggle DataCo Smart Supply Chain Dataset（180,519 行 × 53 列，2015-2018），一张大宽表含订单/物流/产品/客户四维度。
 
-**代码**：`D:/OneDrive/Desktop/supply product/`，Python 3.12，已部署到 AutoClaw（`~/.openclaw-autoclaw/skills/supply-chain-monitor/`）。
+**代码**：Python 3.12，部署路径为项目根目录（`supply-chain-anomaly-agent/`）。
 
 ## 技术栈
 
