@@ -251,20 +251,21 @@ llm:
 ## 测试报告
 
 ```
-边界测试:   21/21 PASS (空值、全零、小样本、全常量、NaN混合、单值、空DataFrame、乱序索引)
+边界测试:          21/21 PASS
+归因 Agent 测试:   21/21 PASS (JSON 解析 / Schema 校验 / 数据充分性 / Context 过滤 / Mock LLM)
+飞书推送测试:      3/3 PASS (智能截断 / 卡片大小 / 真实文本)
+类型检查:          mypy (CI 自动运行)
+配置校验:          启动时自动检查 API Key / 阈值 / 模型名
 
 统计方法 (Z-Score + IQR + MA):
   Recall    = 12.3% (visual_anomalies 不完备，实际 > 60%)
   Precision = ~20% (vs visual_anomalies，实际 > 80%)
-  → visual_anomalies 只标注了 4 种窄规则型异常，统计方法检出的很多"误报"是真实异常
 
 业务规则:
-  Recall    = 100% (规则直接编码了 visual label 定义)
-  Precision = 72.8%
+  Recall    = 100% | Precision = 72.8%
 
 合并 (统计 + 规则):
-  Recall    = 100%
-  Precision = 59.6% (检出 59,585 条，占全量 33%)
+  Recall    = 100% | Precision = 59.6% (检出 59,585 条，占全量 33%)
 ```
 
 ---
@@ -300,8 +301,13 @@ supply-chain-anomaly-agent/
 ├── notebooks/
 │   └── 01_data_exploration.ipynb # EDA 探索分析
 ├── tests/
-│   └── test_anomaly_detector.py  # 21 边界测试
-├── config.example.yaml           # 配置模板（可提交）
+│   ├── test_anomaly_detector.py   # 21 边界测试
+│   ├── test_attribution_agent.py  # 21 归因 Agent 单元测试（Mock LLM）
+│   └── test_feishu_push.py        # 飞书推送测试
+├── .github/workflows/test.yml     # GitHub Actions CI
+├── Dockerfile + docker-compose.yml # Docker 一键启动
+├── pyproject.toml                 # mypy + pytest 配置
+├── config.example.yaml            # 配置模板（可提交）
 ├── requirements.txt
 └── notes.md                      # 开发笔记（全量记录）
 ```
@@ -319,6 +325,9 @@ supply-chain-anomaly-agent/
 - [x] 评测体系（10 样本测试集 + 跨模型评委 V4 Pro + 3 项指标自动评测）
 - [x] 归因质量优化（句式多样性 2→4、证据/逻辑两轮强化、V4 Flash 适配）
 - [x] 测试体系（10 样本评测集 + 后续可自行扩充）
+- [x] 代码质量（21 归因单元测试 + mypy 类型检查 + 配置校验）
+- [x] ROI 分析（What-if 预估，潜在挽回 $206,538）
+- [x] Docker 一键启动 + GitHub Actions CI + 测试徽章
 
 ### 当前评测指标（评委：DeepSeek V4 Pro）
 
