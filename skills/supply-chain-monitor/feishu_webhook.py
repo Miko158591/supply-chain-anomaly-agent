@@ -330,14 +330,42 @@ def generate_excel(project_root: str, severity: str, report_date: str) -> Option
     filename = f"anomalies_{severity}_{report_date}.xlsx"
     filepath = os.path.join(output_dir, filename)
 
-    # 写入 Excel（含 ROI 分析 Sheet）
+    # 写入 Excel（含汇总统计 + ROI 分析）
+    report_data = load_latest_report(project_root)
     with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name=f"{severity.upper()}风险异常", index=False)
 
-        # ROI 分析 Sheet
-        report_data = load_latest_report(project_root)
         if report_data:
-            roi = report_data.get("stats", {}).get("patterns", {}).get("roi", {})
+            stats = report_data.get("stats", {})
+            patterns_data = report_data.get("stats", {}).get("patterns", {})
+            sev = stats.get("severity_counts", {})
+
+            # 汇总统计 Sheet
+            summary_rows = [
+                {"项目": "报告日期", "内容": report_data.get("date", "")},
+                {"项目": "扫描总记录", "内容": f"{stats.get('total_anomalies', 0):,} 条"},
+                {"项目": "高风险", "内容": f"{sev.get('high', 0):,} 条"},
+                {"项目": "中风险", "内容": f"{sev.get('medium', 0):,} 条"},
+                {"项目": "低风险", "内容": f"{sev.get('low', 0):,} 条"},
+                {"项目": "异常模式", "内容": f"{patterns_data.get('total_patterns', 0)} 个"},
+                {"项目": "AI 归因", "内容": f"{stats.get('llm_calls', 0)} 条"},
+                {"项目": "数据不足降级", "内容": f"{stats.get('degraded', 0)} 条"},
+            ]
+            # 模式明细
+            for b in patterns_data.get("pattern_breakdown", []):
+                summary_rows.append({
+                    "项目": f"模式: {b.get('name', '')}",
+                    "内容": f"{b.get('order_count', 0)} 单 / {b.get('anomaly_count', 0)} 条",
+                })
+            summary_rows.append({"项目": "归因模型", "内容": "DeepSeek V4 Flash (max_tokens=4096)"})
+            summary_rows.append({"项目": "评测评委", "内容": "DeepSeek V4 Pro（跨版本）"})
+            summary_rows.append({"项目": "归因均分", "内容": "3.4 / 5"})
+            pd.DataFrame(summary_rows).to_excel(
+                writer, sheet_name="汇总统计", index=False
+            )
+
+            # ROI 分析 Sheet
+            roi = patterns_data.get("roi", {}) if isinstance(patterns_data, dict) else {}
             if roi and roi.get("total_potential_savings", 0) > 0:
                 roi_rows = [{"指标": "潜在挽回总额", "值": f"${roi['total_potential_savings']:,.0f}"}]
                 roi_rows.append({"指标": "估算说明",
