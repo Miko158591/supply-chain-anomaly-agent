@@ -54,3 +54,4 @@ Thumbs.db
 *.log
 *.db
 config_tmp.yaml
+_tmp_cfg.yaml
