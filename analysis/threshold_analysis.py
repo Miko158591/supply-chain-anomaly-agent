@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-阈值消融实验 — 四种检测模式各自扫阈值，画 PR 曲线对比。
+阈值消融实验 + 自动校准 — 四种检测模式各自扫阈值，画 PR 曲线对比。
 
-用法: python analysis/threshold_analysis.py
+用法:
+  python analysis/threshold_analysis.py              # 消融实验 + PR 曲线
+  python analysis/threshold_analysis.py --calibrate  # 自动校准 z 值到 config.yaml
 输出: docs/images/pr_curve_ablation.png
 """
 
@@ -292,5 +294,69 @@ def main():
     print("\n完成。")
 
 
+def auto_calibrate():
+    """自动校准 z 值：分析当前数据分布，推荐最优阈值并写入 config.yaml。"""
+    df = pd.read_csv(
+        os.path.join(PROJECT, "data", "raw", "DataCoSupplyChainDataset.csv"),
+        encoding="latin-1", low_memory=False,
+    )
+    df["shipping_delay_days"] = df["Days for shipping (real)"] - df["Days for shipment (scheduled)"]
+    gt = load_ground_truth()
+
+    print("=== Z-Score 自动校准 ===\n")
+    print(f"[1/3] 分析数据分布...")
+    profit_mean = df["Benefit per order"].mean()
+    profit_std = df["Benefit per order"].std()
+    print(f"  Benefit per order: mean={profit_mean:.1f}, std={profit_std:.1f}")
+    print(f"  5th %ile: {df['Benefit per order'].quantile(0.05):.1f}")
+    print(f"  95th %ile: {df['Benefit per order'].quantile(0.95):.1f}")
+
+    print(f"\n[2/3] 扫描阈值...")
+    ens_results = sweep_ensemble(df, gt)
+
+    best = max(ens_results, key=lambda d: 2*d["recall"]*d["precision"]/(d["recall"]+d["precision"]) if (d["recall"]+d["precision"])>0 else 0)
+    best_f1 = 2*best["recall"]*best["precision"]/(best["recall"]+best["precision"]) if (best["recall"]+best["precision"])>0 else 0
+
+    # Find "拐点" — last z before curve flattens
+    zs_sorted = sorted(ens_results, key=lambda d: d["threshold"])
+    elbow_z = zs_sorted[0]["threshold"]
+    for i in range(1, len(zs_sorted)):
+        prev, curr = zs_sorted[i-1], zs_sorted[i]
+        if abs(curr["recall"] - prev["recall"]) < 0.02 and abs(curr["precision"] - prev["precision"]) < 0.01:
+            elbow_z = prev["threshold"]
+            break
+
+    print(f"  F1 最优 z = {best['threshold']:.1f} (P={best['precision']:.1%}, R={best['recall']:.1%}, F1={best_f1:.1%})")
+    print(f"  拐点 z = {elbow_z:.1f}（之后曲线变平）")
+
+    # Recommend: elbow (more conservative, easier to explain)
+    recommended = elbow_z if elbow_z >= 2.0 else best["threshold"]
+    reason = "拐点（更保守、解释成本更低）" if recommended >= 2.0 else "F1 最优"
+
+    print(f"\n[3/3] 推荐 z = {recommended:.1f}（{reason}）")
+
+    # Write to config
+    config_path = os.path.join(PROJECT, "config.yaml")
+    with open(config_path, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    old_z = config["anomaly"]["zscore"]["threshold"]
+    config["anomaly"]["zscore"]["threshold"] = float(recommended)
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, allow_unicode=True)
+
+    print(f"  config.yaml 已更新: zscore.threshold {old_z} → {recommended:.1f}")
+    print("\n如需手动调整，编辑 config.yaml → anomaly.zscore.threshold")
+
+
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--calibrate", action="store_true", help="自动校准 z 值到 config.yaml")
+    args = parser.parse_args()
+    if args.calibrate:
+        auto_calibrate()
+    else:
+        main()
+
