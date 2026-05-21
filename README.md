@@ -218,7 +218,7 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 
 > 这是项目中后期最有价值的发现——初始假设被实验推翻，评测集偏倚差点导致错误删减架构。详见「消融实验与架构修正」章节及 [notes.md](notes.md) 中的实验记录。
 
-### ADR-002：为什么阈值 2.5 而不是教科书默认的 3.0？
+### ADR-002：阈值选定——从教科书 3.0 → 数据推导 2.5 → 消融优化 2.0
 
 **决策**：Z-Score 阈值设为 2.0（经消融实验从原 2.5 下调，Precision/Recall/F1 均更优）。
 
@@ -359,10 +359,10 @@ llm:
 <p align="center">
   <img src="docs/images/pr_curve_ablation.png" alt="Ablation Study PR Curves" width="80%">
   <br>
-  <em>消融实验：四种检测模式各自 PR 表现（基于 89 条评测集）</em>
+  <em>消融实验：四种检测模式各自 PR 表现（基于 106 条评测集）</em>
 </p>
 
-> **消融实验核心发现**：Z-Score 和 IQR 各自独立对评测集贡献为 0，**业务规则承担了全部检测能力**（单独 P=58.3%, R=75.7%）。三者合并（Ensemble）的增量来自 Z-Score/IQR 在低阈值时捕获的额外边缘样本，代价是 Precision 下降。当前阈值 z=2.5 在 Ensemble 曲线上已是平坦段——选择它而非更低阈值（如 z=1.8 的 F1 最优 68.7%），是基于"宁可保守不漏报"的业务选择。详见 `analysis/threshold_analysis.py`。
+> **消融实验核心发现**：Z-Score 和 IQR 各自独立对评测集贡献为 0，**业务规则承担了全部检测能力**。Ensemble 增量来自 Z-Score/IQR 在低阈值时捕获的边缘样本。当前阈值 **z=2.0**（整数，Precision/Recall/F1 均优于原 2.5），F1 最优在 z=1.4（75.2%），选 2.0 是精度与解释性的平衡。详见 `analysis/threshold_analysis.py`。
 
 ---
 
