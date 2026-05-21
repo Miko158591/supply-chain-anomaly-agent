@@ -48,6 +48,43 @@ sys.path.insert(0, SKILL_DIR)
 from message_formatter import format_daily_summary
 from session_store import handle_message as handle_reply
 
+def _validate_config(config: dict, config_path: str) -> None:
+    """校验 config.yaml 关键字段，配置错误时给出明确提示。"""
+    errors = []
+
+    llm = config.get("llm", {})
+    ds = llm.get("deepseek", {})
+    if not ds.get("api_key") or "your-" in str(ds.get("api_key", "")):
+        errors.append("llm.deepseek.api_key 未配置（需填入真实 DeepSeek API Key）")
+    model = ds.get("model", "")
+    if model and not model.startswith("deepseek"):
+        logger.warning(f"模型名 '{model}' 不是 deepseek- 开头，确认是否正确？")
+
+    notify = config.get("notify", {})
+    lark = notify.get("lark", {})
+    if not lark.get("enable_push", True):
+        pass  # 推送关闭时允许缺失
+    elif not lark.get("app_id") or "your-" in str(lark.get("app_id", "")):
+        if not lark.get("webhook_url") or "your-" in str(lark.get("webhook_url", "")):
+            logger.warning("飞书未配置（app_id/webhook_url 均为空），推送将静默跳过")
+
+    anomaly = config.get("anomaly", {})
+    zscore = anomaly.get("zscore", {})
+    if not zscore.get("threshold") or zscore.get("threshold") <= 0:
+        errors.append("anomaly.zscore.threshold 必须为正数")
+
+    cluster = config.get("cluster", {})
+    if cluster and cluster.get("min_size", 0) < 2:
+        logger.warning("cluster.min_size 建议 >= 2，过低会产生无效模式")
+
+    if errors:
+        for e in errors:
+            logger.error(f"配置错误: {e}")
+        logger.error(f"请编辑 {config_path} 修正上述错误后重试")
+        if "api_key" in "".join(errors):
+            logger.info("获取 API Key: https://platform.deepseek.com/api_keys")
+
+
 os.makedirs(os.path.join(PROJECT_ROOT, "logs"), exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
@@ -344,6 +381,9 @@ def main():
     except FileNotFoundError:
         logger.warning("config.yaml 未找到")
         config = {}
+
+    # 配置校验
+    _validate_config(config, config_path)
 
     lark_cfg = config.get("notify", {}).get("lark", {})
     if args.no_notify:

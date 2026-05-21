@@ -331,4 +331,86 @@ def cluster_anomalies(
         f"{stats['orphans']} 条孤立"
     )
 
+    # ROI 估算
+    roi = _estimate_roi(final_patterns, anomalies)
+    stats["roi"] = roi
+
     return {"patterns": final_patterns, "orphans": orphans, "stats": stats}
+
+
+def _estimate_roi(patterns: List[Dict], anomalies: List[Dict]) -> Dict[str, Any]:
+    """基于异常模式估算潜在挽回金额（What-if 分析）。
+
+    Returns:
+        {
+            "total_potential_savings": 总潜在挽回金额,
+            "breakdown": [{模式名: 挽回金额, ...}],
+            "methodology": "估算方法说明",
+        }
+    """
+    total = 0.0
+    breakdown = []
+
+    for pat in patterns:
+        items = [a for a in anomalies
+                 if a.get("context", {}).get("Order Id")
+                 and str(a.get("context", {}).get("Order Id", "")) in pat.get("order_ids", [])]
+        if not items:
+            continue
+
+        ptype = pat.get("pattern_id", "")
+        order_count = pat.get("order_count", 0)
+        savings = 0.0
+        methodology = ""
+
+        if ptype == "delay_loss_composite":
+            # 延迟+亏损：保守假设 30% 的亏损可通过流程优化挽回
+            losses = [abs(a.get("value", 0)) for a in items
+                      if a.get("metric") in ("Benefit per order", "Order Item Profit Ratio")
+                      and isinstance(a.get("value"), (int, float))
+                      and a.get("value", 0) < 0]
+            avg_loss = sum(losses) / len(losses) if losses else 0
+            savings = avg_loss * order_count * 0.30  # 保守 30% 挽回率
+            methodology = (
+                f"平均单笔亏损 ${avg_loss:,.2f} × {order_count} 单 × 30% 挽回率"
+            )
+
+        elif ptype == "category_concentration":
+            # 品类集中：优化货位/定价后预计可降低 20% 异常
+            avg_benefit = sum(
+                abs(a.get("value", 0)) for a in items
+                if isinstance(a.get("value"), (int, float))
+            ) / max(len(items), 1)
+            savings = avg_benefit * order_count * 0.20
+            methodology = (
+                f"品类优化预计降低 20% 异常 × {order_count} 单 × 均值 ${avg_benefit:,.2f}"
+            )
+
+        elif ptype == "region_concentration":
+            # 区域集中：优化区域承运商合同可挽回 15%
+            avg_benefit = sum(
+                abs(a.get("value", 0)) for a in items
+                if isinstance(a.get("value"), (int, float))
+            ) / max(len(items), 1)
+            savings = avg_benefit * order_count * 0.15
+            methodology = (
+                f"区域承运商优化预计降低 15% 异常 × {order_count} 单"
+            )
+
+        total += savings
+        breakdown.append({
+            "pattern_name": pat.get("pattern_name", "?"),
+            "order_count": order_count,
+            "potential_savings": round(savings, 2),
+            "methodology": methodology,
+        })
+
+    return {
+        "total_potential_savings": round(total, 2),
+        "breakdown": breakdown,
+        "confidence_note": (
+            "ROI 为保守估算（30%/20%/15% 挽回率），实际效果取决于执行力度和数据质量。"
+            "建议在实际运营 1-3 个月后基于真实挽回率修正模型。"
+        ),
+    }
+

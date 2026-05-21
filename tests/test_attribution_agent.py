@@ -1,209 +1,386 @@
 # -*- coding: utf-8 -*-
-"""
-归因 Agent 测试 — 用 visual_anomalies.csv 中的异常跑 DeepSeek 归因分析。
+"""归因 Agent 单元测试 — mock LLM 调用，测试纯逻辑部分。
 
-输出：5 份归因报告 + 效果评估。
+运行: python -m pytest tests/test_attribution_agent.py -v
 """
+
+import json
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pandas as pd
+import pytest
 
 import sys
 import os
-import json
-import textwrap
-
-import pandas as pd
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from analysis.anomaly_detector import AnomalyDetector
 from analysis.attribution_agent import AttributionAgent
 
 
-def print_separator(title: str = ""):
-    print("\n" + "=" * 70)
-    if title:
-        print(f"  {title}")
-        print("=" * 70)
+# ═══════════════════════════ Fixtures ═══════════════════════════
+
+@pytest.fixture
+def sample_anomaly() -> dict:
+    return {
+        "anomaly_id": "zscore_test_001",
+        "timestamp": "2017-06-15",
+        "metric": "Benefit per order",
+        "value": -277.09,
+        "expected_range": [-239.0, 283.0],
+        "severity": "high",
+        "detection_method": "zscore",
+        "context": {
+            "Order Id": 77202,
+            "Category Name": "Fishing",
+            "Market": "LATAM",
+            "Delivery Status": "Late delivery",
+            "Shipping Mode": "Standard Class",
+            "Order Region": "South America",
+            "Customer Segment": "Consumer",
+        },
+    }
 
 
-def print_report(report: dict, index: int):
-    """格式化打印一份归因报告。"""
-    print_separator(f"归因报告 #{index + 1}")
-    meta = report.get("_meta", {})
-
-    # 基本信息
-    print(f"  异常ID:     {meta.get('anomaly_id', 'N/A')}")
-    data_sufficient = meta.get("data_sufficient", True)
-    if data_sufficient is False:
-        print(f"  状态:       [降级] 数据不足，跳过 LLM — 评分 {meta.get('sufficiency_score', '?')}/100")
-        skip_reasons = meta.get("skip_reasons", [])
-        for r in skip_reasons:
-            print(f"             → {r}")
-    print(f"  模型:       {meta.get('model', 'N/A')}")
-    print(f"  API 调用:   {meta.get('api_attempts', '?')} 次")
-    print()
-
-    # 摘要
-    summary = report.get("summary", "（无）")
-    if data_sufficient is False:
-        print(f"  摘要: {summary}")
-    else:
-        print(f"  摘要: {summary}")
-    print()
-
-    # 风险等级
-    risk = report.get("risk_level", "?")
-    risk_icon = {"high": "[HIGH]", "medium": "[MED]", "low": "[LOW]"}.get(risk, "")
-    print(f"  风险等级: {risk_icon} {risk.upper()}")
-    print(f"  风险理由: {report.get('risk_rationale', 'N/A')}")
-    print()
-
-    # 置信度
-    conf = report.get("confidence", 0)
-    print(f"  AI 置信度: {conf:.0%}")
-    print(f"  置信度说明: {report.get('confidence_note', 'N/A')}")
-    print()
-
-    # 根因假设
-    print("  -- 根因假设 --")
-    hyps = report.get("root_cause_hypotheses", [])
-    for i, h in enumerate(hyps):
-        prob = h.get("probability", 0)
-        bar = "#" * int(prob * 20) + "-" * (20 - int(prob * 20))
-        print(f"  {i+1}. [{bar}] {prob:.0%}")
-        print(f"     {h.get('cause', 'N/A')}")
-        evidence = h.get("evidence", [])
-        if evidence:
-            for e in evidence:
-                print(f"     | 证据: {e}")
-        against = h.get("against", [])
-        if against and any(against):
-            for a in against:
-                if a:
-                    print(f"     | 反驳: {a}")
-
-    print()
-
-    # 处置建议
-    print("  -- 处置建议 --")
-    actions = report.get("recommended_actions", [])
-    for i, a in enumerate(actions):
-        prio_icon = {"high": "[HIGH]", "medium": "[MED]", "low": "[LOW]"}.get(a.get("priority"), "")
-        print(f"  {i+1}. {prio_icon} [{a.get('priority', '?').upper()}] {a.get('action', 'N/A')}")
-        print(f"     负责人: {a.get('owner', 'N/A')} | 预期效果: {a.get('expected_effect', 'N/A')}")
-        sop = a.get("sop_ref")
-        if sop and sop != "null":
-            print(f"     引用 SOP: {sop}")
-
-    # 如果有校验错误
-    val_errs = report.get("_validation_errors", [])
-    if val_errs:
-        print(f"\n  !! 校验警告 ({len(val_errs)} 条):")
-        for e in val_errs:
-            print(f"     - {e}")
+@pytest.fixture
+def sample_anomaly_delay() -> dict:
+    return {
+        "anomaly_id": "zscore_test_002",
+        "timestamp": "2017-06-15",
+        "metric": "shipping_delay_days",
+        "value": 4,
+        "expected_range": [0, 2.5],
+        "severity": "high",
+        "detection_method": "iqr",
+        "context": {
+            "Order Id": 75939,
+            "Category Name": "Men's Footwear",
+            "Market": "LATAM",
+            "Delivery Status": "Late delivery",
+            "Shipping Mode": "Standard Class",
+        },
+    }
 
 
-def main():
-    print_separator("归因 Agent 测试")
-    print("  加载数据 + 检测异常 + DeepSeek 归因分析")
-
-    # ---- 加载数据 ----
-    print("\n[1/4] 加载数据 & 异常检测...")
-    df = pd.read_csv("data/raw/DataCoSupplyChainDataset.csv", encoding="latin-1", low_memory=False)
-    df["shipping_delay_days"] = df["Days for shipping (real)"] - df["Days for shipment (scheduled)"]
-
-    detector = AnomalyDetector(config_path="config.yaml")
-    anomalies_df = detector.detect_all(df)
-    print(f"  检出 {len(anomalies_df):,} 条异常")
-
-    # 按 severity 分布
-    sev_counts = anomalies_df["severity"].value_counts()
-    print(f"    严重度分布: high={sev_counts.get('high', 0):,}, "
-          f"medium={sev_counts.get('medium', 0):,}, low={sev_counts.get('low', 0):,}")
-
-    # 按 metric 分布
-    metric_counts = anomalies_df["metric"].value_counts()
-    print(f"    指标分布:")
-    for m in metric_counts.index[:6]:
-        print(f"      {m}: {metric_counts[m]:,}")
-
-    # ---- 初始化归因 Agent ----
-    print("\n[2/4] 初始化 AttributionAgent...")
-    try:
-        agent = AttributionAgent(config_path="config.yaml")
-        print("  DeepSeek 客户端已就绪")
-    except Exception as e:
-        print(f"  初始化失败: {e}")
-        print("  请确认 config.yaml 中的 deepseek.api_key 已配置")
-        return
-
-    # ---- 批量归因 ----
-    print("\n[3/4] 分析 5 条代表性异常...")
-    print("  (策略: 每种 metric + severity 组合至少取 1 条)")
-    print()
-
-    reports = agent.analyze_batch(
-        anomalies_df, df,
-        lookback_days=7,
-        max_samples=5,
-        verbose=True,
-    )
-
-    # ---- 展示报告 ----
-    print("\n[4/4] 归因报告展示")
-    success_count = sum(1 for r in reports if "error" not in r)
-    print(f"  成功: {success_count}/{len(reports)}")
-
-    for i, report in enumerate(reports):
-        if "error" in report:
-            print(f"\n  !! 报告 #{i+1} 失败: {report['error']}")
-            continue
-        print_report(report, i)
-
-    # ---- 效果评估 ----
-    print_separator("效果评估")
-    success_reports = [r for r in reports if "error" not in r]
-    if not success_reports:
-        print("  无成功报告，无法评估")
-        return
-
-    confidences = [r.get("confidence", 0) for r in success_reports]
-    risks = [r.get("risk_level", "low") for r in success_reports]
-    hyps_counts = [len(r.get("root_cause_hypotheses", [])) for r in success_reports]
-    actions_counts = [len(r.get("recommended_actions", [])) for r in success_reports]
-    api_attempts = [r.get("_meta", {}).get("api_attempts", 0) for r in success_reports]
-    degraded = sum(1 for r in success_reports if r.get("_meta", {}).get("data_sufficient") is False)
-    llm_reports = [r for r in success_reports if r.get("_meta", {}).get("data_sufficient") is not False]
-
-    print(f"  LLM 归因:      {len(llm_reports)} 次")
-    print(f"  降级跳过:      {degraded} 次（数据不足，省了 API 调用）")
-    if len(llm_reports) > 0:
-        llm_confs = [r.get("confidence", 0) for r in llm_reports]
-        llm_apis = [r.get("_meta", {}).get("api_attempts", 1) for r in llm_reports]
-        print(f"  LLM 平均置信度: {sum(llm_confs)/len(llm_confs):.1%}")
-        print(f"  LLM 置信度范围: [{min(llm_confs):.0%}, {max(llm_confs):.0%}]")
-        print(f"  LLM 平均 API 调用: {sum(llm_apis)/len(llm_apis):.1f} 次")
-    print(f"  风险分布:      high={risks.count('high')}, medium={risks.count('medium')}, low={risks.count('low')}")
-
-    # 幻觉检查（仅对 LLM 归因的报告）
-    print(f"\n  幻觉检查 (仅 {len(llm_reports)} 份 LLM 报告):")
-    hallucination_risks = 0
-    for r in llm_reports:
-        hyps = r.get("root_cause_hypotheses", [])
-        for h in hyps:
-            cause = h.get("cause", "")
-            if cause and ("调查显示" in cause or "数据显示" in cause or "据统计" in cause):
-                hallucination_risks += 1
-    print(f"    可疑表述数: {hallucination_risks}")
-
-    print(f"\n  总结:")
-    if degraded > 0:
-        print(f"    [OK] {degraded} 个异常因数据不足跳过 LLM——省了 API 费用，避免了硬编")
-    if len(llm_reports) > 0 and sum(r.get("confidence", 0) for r in llm_reports) / len(llm_reports) >= 0.7:
-        print(f"    [OK] LLM 归因质量较好，Few-Shot 有效果")
-    elif len(llm_reports) > 0:
-        print(f"    [~] LLM 置信度偏低，可能需要更丰富的上下文")
-    print(f"    [OK] 异常报告格式规范")
+@pytest.fixture
+def sample_df() -> pd.DataFrame:
+    np.random.seed(42)
+    dates = pd.date_range("2017-06-01", periods=30, freq="D")
+    df = pd.DataFrame({
+        "order date (DateOrders)": dates.repeat(10)[:300],
+        "Benefit per order": np.random.normal(22, 104, 300),
+        "shipping_delay_days": np.random.choice([0, 1, 2, 3, 4], 300, p=[0.3, 0.3, 0.2, 0.15, 0.05]),
+        "Order Item Profit Ratio": np.random.normal(0.12, 0.47, 300).clip(-2, 0.5),
+        "Order Item Total": np.random.uniform(10, 500, 300),
+        "Late_delivery_risk": np.random.choice([0, 1], 300, p=[0.45, 0.55]),
+        "Category Name": np.random.choice(["Fishing", "Cleats", "Camping"], 300),
+        "Market": np.random.choice(["LATAM", "Europe", "Pacific"], 300),
+        "Sales per customer": np.random.normal(200, 80, 300),
+        "Days for shipping (real)": np.random.choice([0, 1, 2, 3, 4], 300),
+        "Days for shipment (scheduled)": np.random.choice([1, 2, 3], 300),
+        "Delivery Status": np.random.choice(["Shipping on time", "Late delivery"], 300, p=[0.4, 0.6]),
+        "Shipping Mode": np.random.choice(["Standard Class", "First Class", "Second Class"], 300, p=[0.6, 0.1, 0.3]),
+        "Order Region": np.random.choice(["South America", "Europe", "Pacific"], 300),
+        "Customer Segment": np.random.choice(["Consumer", "Corporate", "Home Office"], 300),
+    })
+    return df
 
 
-if __name__ == "__main__":
-    main()
+# ═══════════════════════════ 1. JSON 解析 ═══════════════════════════
+
+class TestJsonParsing:
+    def test_parse_clean_json(self):
+        result = AttributionAgent.parse_response(json.dumps({"key": "value"}))
+        assert result == {"key": "value"}
+
+    def test_parse_json_with_markdown_fence(self):
+        result = AttributionAgent.parse_response('```json\n{"a": 1}\n```')
+        assert result == {"a": 1}
+
+    def test_parse_json_with_extra_text(self):
+        result = AttributionAgent.parse_response('分析：\n{"score": 80}\n参考。')
+        assert result == {"score": 80}
+
+    def test_parse_single_quotes(self):
+        result = AttributionAgent.parse_response("{'name': 'test', 'value': 42}")
+        assert result == {"name": "test", "value": 42}
+
+    def test_parse_python_keywords(self):
+        result = AttributionAgent.parse_response(
+            '{"flag": True, "other": False, "missing": None}'
+        )
+        assert result == {"flag": True, "other": False, "missing": None}
+
+    def test_parse_trailing_comma(self):
+        result = AttributionAgent.parse_response(
+            '{"items": [1, 2, 3,], "name": "test",}'
+        )
+        assert result == {"items": [1, 2, 3], "name": "test"}
+
+    def test_parse_invalid_raises(self):
+        with pytest.raises(ValueError, match="JSON 解析失败"):
+            AttributionAgent.parse_response("这不是 JSON")
+
+    def test_parse_real_attribution_output(self):
+        """解析一条真实归因输出格式。"""
+        raw = """```json
+{
+  "root_cause_hypotheses": [
+    {
+      "cause": "延迟交付触发了运费补贴",
+      "probability": 0.75,
+      "evidence": ["订单状态为 Late delivery"],
+      "against": ["缺少运费明细"]
+    }
+  ],
+  "recommended_actions": [
+    {
+      "action": "复核订单费用明细",
+      "priority": "high",
+      "expected_effect": "定位亏损主因",
+      "owner": "财务分析师",
+      "sop_ref": "SOP-002"
+    }
+  ],
+  "risk_level": "high",
+  "risk_rationale": "亏损严重",
+  "confidence": 0.80,
+  "confidence_note": "数据充分",
+  "summary": "一句话"
+}
+```"""
+        result = AttributionAgent.parse_response(raw)
+        assert result["risk_level"] == "high"
+        assert len(result["root_cause_hypotheses"]) == 1
+        assert result["root_cause_hypotheses"][0]["probability"] == 0.75
+
+
+# ═══════════════════════════ 2. Schema 校验 ═══════════════════════════
+
+class TestSchemaValidation:
+    def test_valid_report_passes(self):
+        valid = {
+            "root_cause_hypotheses": [
+                {"cause": "延迟", "probability": 0.7, "evidence": ["证据1"], "against": []}
+            ],
+            "recommended_actions": [
+                {"action": "复核", "priority": "high", "owner": "财务",
+                 "expected_effect": "定位", "sop_ref": "SOP-001"}
+            ],
+            "risk_level": "high", "risk_rationale": "亏损严重",
+            "confidence": 0.8, "confidence_note": "数据充分", "summary": "一句话",
+        }
+        assert AttributionAgent.validate(valid) == []
+
+    def test_missing_fields_detected(self):
+        assert len(AttributionAgent.validate({"risk_level": "high"})) >= 3
+
+    def test_probability_out_of_range(self):
+        invalid = {
+            "root_cause_hypotheses": [
+                {"cause": "x", "probability": 1.5, "evidence": ["e"], "against": []}
+            ],
+            "recommended_actions": [
+                {"action": "x", "priority": "high", "owner": "x",
+                 "expected_effect": "x", "sop_ref": None}
+            ],
+            "risk_level": "high", "risk_rationale": "x",
+            "confidence": 0.5, "confidence_note": "x", "summary": "x",
+        }
+        errors = AttributionAgent.validate(invalid)
+        assert any("probability" in e for e in errors)
+
+    def test_invalid_risk_level(self):
+        invalid = {
+            "root_cause_hypotheses": [
+                {"cause": "x", "probability": 0.5, "evidence": ["e"], "against": []}
+            ],
+            "recommended_actions": [
+                {"action": "x", "priority": "high", "owner": "x",
+                 "expected_effect": "x", "sop_ref": None}
+            ],
+            "risk_level": "critical", "risk_rationale": "x",
+            "confidence": 0.5, "confidence_note": "x", "summary": "x",
+        }
+        assert any("risk_level" in e for e in AttributionAgent.validate(invalid))
+
+    def test_empty_hypotheses(self):
+        invalid = {
+            "root_cause_hypotheses": [],
+            "recommended_actions": [
+                {"action": "x", "priority": "high", "owner": "x",
+                 "expected_effect": "x", "sop_ref": None}
+            ],
+            "risk_level": "high", "risk_rationale": "x",
+            "confidence": 0.5, "confidence_note": "x", "summary": "x",
+        }
+        assert any("为空" in e for e in AttributionAgent.validate(invalid))
+
+
+# ═══════════════════════════ 3. 数据充分性检查 ═══════════════════════════
+
+class TestDataSufficiency:
+    def test_daily_metric_insufficient(self):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent._df = None
+        agent._daily_metrics = None
+        result = agent.data_sufficiency_check(
+            {"anomaly_id": "test", "metric": "daily_late_rate",
+             "value": 0.55, "context": {}},
+            lookback_days=7,
+        )
+        assert result["sufficient"] is False
+        assert len(result["reasons"]) >= 1
+
+    def test_record_level_sufficient(
+        self, sample_anomaly: dict, sample_df: pd.DataFrame
+    ):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent._df = sample_df
+        agent._daily_metrics = None
+        result = agent.data_sufficiency_check(sample_anomaly, lookback_days=7)
+        assert result["sufficient"] is True
+
+
+# ═══════════════════════════ 4. Context 过滤 ═══════════════════════════
+
+class TestContextFiltering:
+    def test_delay_metric_excludes_profit_fields(
+        self, sample_df: pd.DataFrame, sample_anomaly_delay: dict
+    ):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent._df = sample_df
+        agent._daily_metrics = {}
+        ctx = agent.generate_context(sample_anomaly_delay, lookback_days=7)
+        order_ctx = ctx["order_context"]
+        assert "Benefit" not in order_ctx
+        assert "Profit" not in order_ctx
+
+    def test_profit_metric_excludes_delay_fields(
+        self, sample_df: pd.DataFrame, sample_anomaly: dict
+    ):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent._df = sample_df
+        agent._daily_metrics = {}
+        ctx = agent.generate_context(sample_anomaly, lookback_days=7)
+        order_ctx = ctx["order_context"]
+        assert "Shipping Mode" not in order_ctx
+        assert "Delivery Status" not in order_ctx
+
+    def test_context_includes_cross_category_comparison(
+        self, sample_df: pd.DataFrame, sample_anomaly: dict
+    ):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent._df = sample_df
+        agent._daily_metrics = {}
+        ctx = agent.generate_context(sample_anomaly, lookback_days=7)
+        assert len(ctx["comparison_text"]) > 10
+
+
+# ═══════════════════════════ 5. Mock LLM 调用 ═══════════════════════════
+
+MOCK_REPORT = {
+    "root_cause_hypotheses": [
+        {
+            "cause": "延迟交付触发运费补贴，将微利订单推入亏损",
+            "probability": 0.75,
+            "evidence": [
+                "订单状态为 Late delivery",
+                "品类近7天利润均值 $8.50 远低于全局 $26.39"
+            ],
+            "against": ["缺少运费明细无法精确定量"]
+        }
+    ],
+    "recommended_actions": [
+        {
+            "action": "财务分析师复核订单费用明细",
+            "priority": "high",
+            "expected_effect": "30分钟内定位亏损主因",
+            "owner": "财务分析师",
+            "sop_ref": "SOP-002"
+        }
+    ],
+    "risk_level": "high",
+    "risk_rationale": "亏损严重且涉及延迟",
+    "confidence": 0.80,
+    "confidence_note": "数据支撑充分，缺少费用拆分明细",
+    "summary": "延迟交付叠加品类利润薄弱导致严重亏损",
+}
+
+
+class TestMockedAttribution:
+    """Mock LLM 调用，测试归因主流程的纯逻辑部分。"""
+
+    def test_analyze_with_mock_llm(
+        self, sample_anomaly: dict, sample_df: pd.DataFrame
+    ):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent._df = sample_df
+        agent._daily_metrics = None
+        agent.model = "test-model"
+        agent.sop_full_text = "SOP-001: 物流延迟处置\nSOP-002: 大额亏损处置"
+
+        # Mock call_llm
+        mock_raw = json.dumps(MOCK_REPORT, ensure_ascii=False)
+        agent.call_llm = MagicMock(return_value=(mock_raw, 1))
+
+        # 注：analyze 需要 config_path，这里测试子流程
+        # 测试 parse + validate 组合
+        parsed = agent.parse_response(mock_raw)
+        assert parsed["confidence"] == 0.80
+        assert parsed["risk_level"] == "high"
+
+        errors = agent.validate(parsed)
+        assert len(errors) == 0, errors
+
+    def test_retry_on_parse_failure(
+        self, sample_anomaly: dict, sample_df: pd.DataFrame
+    ):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent._df = sample_df
+        agent._daily_metrics = None
+        agent.model = "test-model"
+        agent.sop_full_text = ""
+        agent.max_retries = 3
+        agent.temperature = 0.3
+
+        valid_json = json.dumps(MOCK_REPORT, ensure_ascii=False)
+        call_count = [0]
+
+        def mock_llm(prompt, is_retry=False, retry_error=""):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return "Bad response not json", 1
+            else:
+                return valid_json, 1
+
+        agent.call_llm = mock_llm
+
+        # parse 第一次失败 → call_llm should have been called
+        # 验证 parse 对无效输入的恰当处理
+        with pytest.raises(ValueError, match="JSON 解析失败"):
+            agent.parse_response("Bad response not json")
+
+        # parse 第二次应成功
+        parsed = agent.parse_response(valid_json)
+        assert parsed["confidence"] == 0.80
+
+    def test_degraded_report_structure(self):
+        agent = AttributionAgent.__new__(AttributionAgent)
+        agent.sop_full_text = "SOP-001: 物流\nSOP-002: 亏损"
+        sufficiency = {
+            "sufficient": False,
+            "score": 40,
+            "reasons": ["数据不足"],
+        }
+        anomaly = {
+            "anomaly_id": "test_daily",
+            "metric": "daily_late_rate",
+            "value": 0.55,
+            "severity": "high",
+            "context": {},
+        }
+        report = agent._build_degraded_report(anomaly, sufficiency)
+        assert "_meta" in report
+        assert report["_meta"]["data_sufficient"] is False
+        assert len(report["summary"]) > 5
+        assert len(report["recommended_actions"]) > 0

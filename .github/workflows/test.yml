@@ -89,6 +89,23 @@ jobs:
           print(f'Synthetic data: {len(df)} rows')
           "
 
+      - name: Type check (mypy)
+        run: |
+          pip install mypy
+          mypy analysis/ --ignore-missing-imports || true
+
+      - name: Config validation
+        run: |
+          python -c "
+          import yaml
+          with open('config.example.yaml') as f:
+              cfg = yaml.safe_load(f)
+          assert 'llm' in cfg, 'Missing llm section'
+          assert 'anomaly' in cfg, 'Missing anomaly section'
+          assert 'notify' in cfg, 'Missing notify section'
+          print('Config structure valid')
+          "
+
       - name: Run tests
         run: |
           python -m pytest tests/ -v --tb=short
