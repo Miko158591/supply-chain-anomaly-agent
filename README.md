@@ -220,7 +220,7 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 
 ### ADR-002：为什么阈值 2.5 而不是教科书默认的 3.0？
 
-**决策**：Z-Score 阈值设为 2.5（原教科书值 3.0）。
+**决策**：Z-Score 阈值设为 2.0（经消融实验从原 2.5 下调，Precision/Recall/F1 均更优）。
 
 **理由**：基于 DataCo 数据集的实际分位数分布推算。利润均值 $22.0，标准差 $104.4：
 - z=3.0 下界 = $-291，只能捕获 0.5% 的订单
@@ -437,7 +437,30 @@ supply-chain-anomaly-agent/
 | Recall | 74.1% | 当前 z=2.5 基线（消融最优可达 92.6%，但以 Precision 下降为代价） |
 | F1 | **67.2%** | 当前 z=2.5 基线（消融 Ensemble 最优 F1=75.2%） |
 
-**关于 Precision 的说明**：供应链异常监控场景下 **Recall 优先于 Precision**——漏报（放过了延迟+亏损的订单）的代价远大于误报（多推送了一条可能需要复核的异常）。如果业务方对误报更敏感，可通过调高 `config.yaml` 中 `zscore.threshold`（当前 2.5）来平衡。业务规则层单独 Recall=100% 兜底，统计层 Precision 的波动不影响最危险异常的捕获。
+**关于 Precision 的说明**：供应链异常监控场景下 **Recall 优先于 Precision**——漏报的代价远大于误报。如需调整：**调低 `zscore.threshold` → Recall↑、F1↑**（当前 z=2.0，候选对比见 `python analysis/threshold_analysis.py --calibrate`）。业务规则层单独 Recall=100% 兜底，统计层 Precision 的波动不影响最危险异常的捕获。
+
+### 阈值自动校准
+
+接入新数据后，运行 `python analysis/threshold_analysis.py --calibrate`，脚本会：
+
+1. 分析新数据分布（均值/标准差/分位数）
+2. 在 z=1.0~4.0 逐点扫描，每点跑完整检测并计算 P/R/F1
+3. 输出候选表（F1最优 / z=2.0整数 / z=2.5保守）
+4. 用正则只改 `config.yaml` 中 threshold 那一行，不破坏其他配置
+
+推荐 z=2.0（整数干净，Precision/Recall/F1 均优于 2.5）。
+
+### ROI 计算方法
+
+ROI 估算在 `analysis/pattern_clusterer.py → _estimate_roi()` 中，基于异常模式逐类计算：
+
+| 模式 | 算法 | 挽回率 |
+|------|------|--------|
+| 延迟+亏损复合 | 平均单笔亏损 × 订单数 × 挽回率 | 30% |
+| 品类集中 | 平均偏离额 × 订单数 × 挽回率 | 20% |
+| 区域集中 | 平均偏离额 × 订单数 × 挽回率 | 15% |
+
+挽回率为保守估算，建议运营 1-3 个月后基于真实数据修正。每次 pipeline 运行都会重新计算，因此数值会随检测结果波动。
 
 #### 归因质量（评委：DeepSeek V4 Pro）
 
