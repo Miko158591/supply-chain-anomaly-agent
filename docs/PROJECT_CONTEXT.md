@@ -1,84 +1,86 @@
 # 供应链异常智能监控与归因 Agent — 项目上下文
 
-> 新会话开始时读此文档即可快速进入状态。保持 1500 字以内。
+> 新会话或新开发者打开项目时读此文档即可快速进入状态。
 
 ## 项目概况
 
-**目标**：搭建供应链异常智能监控系统，自动执行「数据监控 → 统计异常检测 → DeepSeek AI 归因 → 飞书推送」全流程。面向找实习的个人项目。作者 WANG Chuncheng（GitHub: Miko158591）。
+**目标**：搭建供应链异常智能监控系统，自动执行「数据监控 → 统计异常检测 → 模式聚类 → DeepSeek AI 归因 → 飞书推送」全流程。面向找实习的个人项目。作者 Miko（GitHub: Miko158591）。
 
 **数据**：Kaggle DataCo Smart Supply Chain Dataset（180,519 行 × 53 列，2015-2018），一张大宽表含订单/物流/产品/客户四维度。
 
-**代码**：Python 3.12，部署路径为项目根目录（`supply-chain-anomaly-agent/`）。
+**代码**：Python 3.12，项目根目录 `supply-chain-anomaly-agent/`。
 
 ## 技术栈
 
 | 层 | 技术 |
 |------|------|
 | 异常检测 | Z-Score + IQR + 移动平均偏离 + 业务规则（纯统计，不用 ML） |
-| LLM 归因 | DeepSeek API（OpenAI 兼容 SDK）|
-| Prompt 工程 | Few-Shot（3 示例）+ JSON Schema 校验 + 防幻觉铁律 |
-| Agent 框架 | OpenClaw / AutoClaw（Skill 机制） |
+| 模式聚类 | 规则法（延迟+亏损复合 / 品类集中 / 区域集中） |
+| LLM 归因 | DeepSeek API（OpenAI 兼容 SDK），默认 V4 Flash + 4096 tokens |
+| Prompt 工程 | Few-Shot（3 示例）+ JSON Schema 校验 + 反模板 + 证据质量铁律 |
+| 评测体系 | 89 条分层抽样测试集 + 跨模型评委（V4 Pro 评 V4 Flash） |
 | 存储 | SQLite + CSV |
-| 推送 | 飞书企业应用 API（app_id + app_secret → tenant_access_token） |
-| 可视化 | matplotlib + plotly |
+| 推送 | 飞书企业应用 API（app_id + app_secret → 交互卡片 + Excel 文件） |
+| CI/CD | GitHub Actions（21 边界测试 + 21 归因测试 + mypy 类型检查） |
+| 部署 | Docker 一键启动（docker-compose.yml） |
 
 ## 架构概览
 
 ```
-CSV → AnomalyDetector(Z-Score+IQR+MA+规则) → AttributionAgent(DeepSeek+SOP+Few-Shot)
-  → 飞书三层消息(L1日报/L2摘要/L3详情) + JSON报告 + Excel导出
-  ← feishu_poll.py 拉取群消息 → handle_message() → 文本回复
+CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek V4 Flash)
+  → 飞书日报卡片（异常模式 + Top 5 + ROI）
+  → Excel 导出（3 Sheet：异常明细 + 汇总统计 + ROI分析）
+  ← feishu_webhook.py + ngrok → @机器人 交互命令
 ```
 
 **关键模块**：
-- `analysis/anomaly_detector.py` — 检测引擎，输出 8 字段标准化异常记录
-- `analysis/attribution_agent.py` — 归因引擎，含数据充分性检查 + Schema 校验 + 重试
-- `prompts/attribution_prompt.py` — System prompt + Few-Shot 示例 + JSON Schema
+- `analysis/anomaly_detector.py` — 检测引擎，4 种方法，59,585 条异常/次
+- `analysis/pattern_clusterer.py` — 模式聚类（3 种规则 + ROI 估算，潜在挽回 $206K）
+- `analysis/attribution_agent.py` — 归因引擎（Schema 校验 + 重试 + context 过滤）
+- `analysis/threshold_analysis.py` — 阈值敏感性分析 + PR 曲线生成
+- `prompts/attribution_prompt.py` — System prompt + Few-Shot + JSON Schema（v3 版）
+- `prompts/good_evidence.json` + `bad_evidence.json` — 证据质量示例
 - `knowledge/supply_chain_sop.md` — 10 条供应链异常处置 SOP
-- `skills/supply-chain-monitor/` — OpenClaw Skill 封装
-  - `monitor.py` — 主入口（检测 → 归因 → 推送）
-  - `message_formatter.py` — 三层消息格式（L1 日报 / L2 摘要 / L3 详情）
-  - `session_store.py` — SQLite 会话状态 + `handle_message()` 命令路由
-  - `feishu_poll.py` — API 拉取模式（轮询群消息，识别命令并回复，无需 tunnel）
-  - `feishu_webhook.py` — Webhook 模式（备用，需公网 URL/tunnel）
+- `eval/` — 89 条评测集 + 自动评测脚本 + 报告模板
+- `skills/supply-chain-monitor/` — 飞书 Skill 封装
+  - `monitor.py` — 主入口
+  - `feishu_webhook.py` — 飞书事件回调 + 异步命令处理 + 去重
+  - `message_formatter.py` — 日报卡片格式化（模式 + Top 5 + ROI）
+  - `session_store.py` — SQLite 会话状态
 
 ## 已完成里程碑
 
-| 里程碑 | 关键 Commit | 核心成果 |
-|--------|------------|----------|
-| 骨架 + EDA | `db037e9` | 目录结构、6 张图表、35,464 条视觉标注 |
-| 异常检测引擎 | `db037e9`→`d3b6831` | 4 种方法、21 边界测试、偏差度字段、IQR k=2.0 |
-| DeepSeek 归因 | `1ee26d6` | AttributionAgent、SOP 知识库、JSON Schema 校验 |
-| Few-Shot + 数据检查 | `a01c085`, `4d79313` | 置信度 53%→65%、daily 异常自动降级跳过 LLM |
-| Skill + 飞书推送 | `bddd831`→`fdafd72` | OpenClaw 封装、飞书企业应用推送、Excel 导出 |
-| 三层消息 | `7f4af53` | L1 日报/L2 摘要/L3 详情、SQLite 会话状态 |
+| 里程碑 | 核心成果 |
+|--------|----------|
+| 骨架 + EDA | 目录结构、6 张图表、35,464 条视觉标注 |
+| 异常检测引擎 | 4 种方法、21 边界测试、IQR k=2.0 |
+| DeepSeek 归因 | AttributionAgent、SOP 知识库、JSON Schema 校验 |
+| 飞书推送 + 交互 | Webhook 服务器、@机器人命令、Excel 文件推送 |
+| 归因质量优化 | 三版 prompt 迭代、句式多样性 2→4、证据 2.0→2.2 |
+| 异常模式聚类 | 3 种规则 + ROI 分析（$206K） |
+| 评测体系 | 89 条分层标注 + V4 Pro 评委 + 跨模型对照实验 |
+| Docker + CI | Dockerfile/docker-compose + GitHub Actions + mypy |
+| PR 曲线 | Z-Score 阈值扫描、docs/images/pr_curve_zscore.png |
 
-## 关键设计决策
+## 关键设计决策（ADR）
 
-1. **统计方法 > ML**（ADR-001）：供应链监控需要可解释性，Z-Score 告诉运营"偏离均值 X 倍"，Isolation Forest 只能说"分数 0.73"。纯统计零训练成本。
-2. **阈值 2.5 而非 3.0**（ADR-002）：基于 DataCo 实际分位数推算。z=3.0 只能捕获 0.5% 订单，z=2.5 覆盖 ~2.5%。
-3. **Shipping Mode 不作为预测特征**（ADR-003）：First Class 延迟率 95.3% 是因（延迟后升级运输）而非果。使用会数据泄漏。
-4. **Precision > Recall**：宁可漏检不要误报。visual_anomalies.csv 不完备（仅 4 种规则型标注），统计方法的"误报"大多是真实异常。
-5. **shipping_delay_days 不走统计方法**：值域 -2~4 的离散分布，IQR/Z-Score 不适用，只走业务规则。
-6. **归因前先检查数据充分性**：daily 聚合级异常天然缺单点上下文，跳过 LLM 省 API 费、避免硬编。
-7. **飞书消息三层信息密度**：L1 3 秒扫完（<500 字）→ L2 10 秒读懂（<150 字）→ L3 完整报告。会话状态 SQLite 30 分钟过期。
+1. **统计方法 > ML**（ADR-001）：可解释性优先
+2. **阈值 2.5 而非 3.0**（ADR-002）：数据驱动推导 + PR 曲线验证
+3. **Shipping Mode 不作为预测特征**（ADR-003）：数据泄漏（First Class 是延迟结果非原因）
+4. **轻量 RAG 替代向量数据库**（ADR-004）：10 条 SOP 全量注入 prompt
+5. **模型无关设计**（ADR-005）：`config.yaml` 改一行换模型，支持任何 OpenAI 兼容 API
+6. **规则聚类 > ML 聚类**（ADR-006）：离散业务特征 + 可解释性
 
-## 已知问题
+详见 `docs/architecture_decisions.md`
 
-| 优先级 | 问题 | 状态 |
-|--------|------|------|
-| P1 | 飞书回复"1"/"详情"/"全部"命令识别 | 已解决（feishu_poll.py API 拉取模式，无需隧道） |
-| P2 | 日报卡片中"全部"清单 Order Id 显示 #?（format_all_anomalies 的 context 读取路径待确认） | 跟踪中 |
-| P3 | 退出码 128 TLS 偶发错误，重试可恢复 | 偶发 |
-| P3 | Windows 终端 GBK 编码导致 emoji 输出崩溃（已用 ASCII 替代） | 已解决 |
+## 评测基线
 
-## 代码风格
-
-- Python 3.10+，所有函数有 type hints 和 docstring
-- 配置在 `config.yaml`，阈值不硬编码。`config.example.yaml` 是提交模板
-- 日志用 `logging` 不用 `print`；注释用中文
-- 测试文件在 `tests/`，命名 `test_*.py`
-- 模块化：每个文件单一职责
+| 指标 | 值 |
+|------|-----|
+| 检测 F1 | 66.7%（89 条，悲观下界） |
+| 归因整体 | 3.4/5（V4 Pro 评委） |
+| 证据充分性 | 2.2/5（prompt 触顶，瓶颈在数据粒度） |
+| ROI 潜在挽回 | $206,538/年 |
 
 ## 当前任务
 
