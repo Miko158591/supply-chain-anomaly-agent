@@ -8,6 +8,7 @@
 """
 
 import sys
+import pytest
 import os
 import numpy as np
 import pandas as pd
@@ -175,6 +176,9 @@ def test_recall():
 
     # ---- 加载数据 ----
     print("\n[2.1] 加载数据...")
+    # visual_anomalies.csv 不在 repo 中（本地生成），CI 跳过
+    if not os.path.exists("data/processed/visual_anomalies.csv"):
+        pytest.skip("visual_anomalies.csv not found (CI environment)")
     df = pd.read_csv("data/raw/DataCoSupplyChainDataset.csv", encoding="latin-1", low_memory=False)
     df["shipping_delay_days"] = df["Days for shipping (real)"] - df["Days for shipment (scheduled)"]
     df["date"] = pd.to_datetime(df["order date (DateOrders)"]).dt.date
