@@ -110,7 +110,8 @@ def sweep_zscore(df, gt) -> list:
         oids = get_detected_oids(result)
         p, r = compute_pr(oids, gt)
         results.append({"threshold": round(z, 1), "precision": p, "recall": r})
-        os.remove(tmp)
+        if os.path.exists(tmp):
+            os.remove(tmp)
         f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
         print(f"  Z-Score z={z:.1f}: P={p:.3f} R={r:.3f} F1={f1:.3f}")
     return results
@@ -129,7 +130,8 @@ def sweep_iqr(df, gt) -> list:
         oids = get_detected_oids(result)
         p, r = compute_pr(oids, gt)
         results.append({"threshold": round(k, 1), "precision": p, "recall": r})
-        os.remove(tmp)
+        if os.path.exists(tmp):
+            os.remove(tmp)
         f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
         print(f"  IQR k={k:.1f}: P={p:.3f} R={r:.3f} F1={f1:.3f}")
     return results
@@ -146,7 +148,8 @@ def sweep_business_rule(df, gt) -> list:
     # 业务规则无阈值，重复填充使曲线可画
     for _ in np.arange(1.0, 4.1, 0.2):
         results.append({"threshold": 0, "precision": p, "recall": r})
-    os.remove(tmp)
+    if os.path.exists(tmp):
+        os.remove(tmp)
     f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
     print(f"  业务规则: P={p:.3f} R={r:.3f} F1={f1:.3f}")
     return results
@@ -165,7 +168,8 @@ def sweep_ensemble(df, gt) -> list:
         oids = get_detected_oids(result)
         p, r = compute_pr(oids, gt)
         results.append({"threshold": round(z, 1), "precision": p, "recall": r})
-        os.remove(tmp)
+        if os.path.exists(tmp):
+            os.remove(tmp)
         f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
         print(f"  Ensemble z={z:.1f}: P={p:.3f} R={r:.3f} F1={f1:.3f}")
     return results
