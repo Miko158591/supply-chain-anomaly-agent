@@ -1,0 +1,771 @@
+{
+  "date": "2026-05-22T06:41:48.588334",
+  "test_cases_count": 106,
+  "anomaly_cases": 54,
+  "normal_cases": 52,
+  "detection": {
+    "precision": 0.6429,
+    "recall": 0.8333,
+    "f1": 0.7258,
+    "tp": 45,
+    "fp": 25,
+    "tn": 27,
+    "fn": 9,
+    "details": [
+      {
+        "id": "TC001",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "极端亏损+延迟复合：利润 -$277.09，延迟 2 天，品类 Fishing 利润率极薄（品类均值 0.08 vs 全局 0.12），Late deliver"
+      },
+      {
+        "id": "TC002",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "单品类结构性延迟：Men's Footwear 品类延迟 4 天，品类近 7 天均值 0.68 天（全局 0.46 天，高出 48%）。Standard Cla"
+      },
+      {
+        "id": "TC003",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "利润率异常偏高：订单利润率 0.47，品类 Cardio Equipment 近 7 天利润率均值仅 0.08（全局 0.12），该订单高出品类均值近 6 倍。"
+      },
+      {
+        "id": "TC004",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "延迟+亏损复合（跟 TC001 同模式不同数据）：Women's Apparel，利润 -$358.12，延迟 3 天，Late delivery。品类近 7 "
+      },
+      {
+        "id": "TC005",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "单品类亏损集中：Cleats 品类利润 -$1192（品类均值 $0.13），延迟 3 天。订单金额 $549 属于高价值订单，亏损金额极大。"
+      },
+      {
+        "id": "TC006",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "无延迟但巨额亏损：订单亏损 -$4274（数据集中最极端值之一），但交付状态为 'Shipping on time'，无延迟。利润率为 -2.75（历史最低），"
+      },
+      {
+        "id": "TC007",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "正常订单：利润 $31.52（均值附近），无延迟（shipping_delay_days=0），准时交付，Standard Class 运输，Cleats 品类"
+      },
+      {
+        "id": "TC008",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "正常订单：利润稍低但仍在合理范围（$7.0 在 25th%ile），延迟 1 天（常见），准时交付。不属于异常。"
+      },
+      {
+        "id": "TC009",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "高利润率异常 + 高价值订单：利润率 0.50（触及数据集上限），订单金额 $456，Water Sports 品类。可能是批发订单或系统定价问题，不是真正的亏"
+      },
+      {
+        "id": "TC010",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "边缘案例：利润为负（-$50）但仍在 IQR 范围内，延迟 2 天（略高但非极端）。First Class 运输（已知高延迟率，不代表该订单异常）。预期：可能被"
+      },
+      {
+        "id": "TC11936",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#11936 delay=0d profit=$-707 ratio=-1.77 Fishing Shipping on time"
+      },
+      {
+        "id": "TC37128",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#37128 delay=2d profit=$-577 ratio=-1.55 Fishing Late delivery"
+      },
+      {
+        "id": "TC55345",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#55345 delay=1d profit=$-501 ratio=-1.57 Fishing Late delivery"
+      },
+      {
+        "id": "TC4113",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#4113 delay=0d profit=$-739 ratio=-2.65 Camping & Hiking Shipping on time"
+      },
+      {
+        "id": "TC28136",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#28136 delay=-2d profit=$-866 ratio=-1.75 Cardio Equipment Advance shipping"
+      },
+      {
+        "id": "TC5003",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#5003 delay=0d profit=$-504 ratio=-1.75 Cardio Equipment Shipping on time"
+      },
+      {
+        "id": "TC47057",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#47057 delay=-1d profit=$-884 ratio=-2.60 Fishing Advance shipping"
+      },
+      {
+        "id": "TC59879",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#59879 delay=1d profit=$-685 ratio=-2.75 Camping & Hiking Late delivery"
+      },
+      {
+        "id": "TC27012",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#27012 delay=1d profit=$-574 ratio=-1.65 Fishing Late delivery"
+      },
+      {
+        "id": "TC44891",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#44891 delay=-2d profit=$-540 ratio=-1.50 Fishing Advance shipping"
+      },
+      {
+        "id": "TC18521",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#18521 delay=0d profit=$-161 ratio=-1.55 Men's Footwear Shipping canceled"
+      },
+      {
+        "id": "TC45804",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#45804 delay=1d profit=$-229 ratio=-1.55 Cleats Late delivery"
+      },
+      {
+        "id": "TC48462",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#48462 delay=-1d profit=$-432 ratio=-1.80 Women's Apparel Advance shipping"
+      },
+      {
+        "id": "TC7225",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#7225 delay=2d profit=$-90 ratio=-1.50 Accessories Late delivery"
+      },
+      {
+        "id": "TC62316",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#62316 delay=0d profit=$-432 ratio=-1.50 Boxing & MMA Shipping on time"
+      },
+      {
+        "id": "TC8080",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#8080 delay=4d profit=$-588 ratio=-1.50 Fishing Late delivery"
+      },
+      {
+        "id": "TC60340",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#60340 delay=4d profit=$-405 ratio=-1.55 Camping & Hiking Late delivery"
+      },
+      {
+        "id": "TC44429",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#44429 delay=3d profit=$-309 ratio=-1.70 Indoor/Outdoor Games Late delivery"
+      },
+      {
+        "id": "TC17979",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#17979 delay=3d profit=$-331 ratio=-1.75 Women's Apparel Late delivery"
+      },
+      {
+        "id": "TC63550",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#63550 delay=4d profit=$-647 ratio=-2.45 Cardio Equipment Late delivery"
+      },
+      {
+        "id": "TC38520",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#38520 delay=0d profit=$7 ratio=0.06 Cleats Shipping on time"
+      },
+      {
+        "id": "TC22016",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#22016 delay=-2d profit=$-42 ratio=-0.23 Water Sports Advance shipping"
+      },
+      {
+        "id": "TC12307",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#12307 delay=1d profit=$-1 ratio=-0.01 Men's Footwear Late delivery"
+      },
+      {
+        "id": "TC50385",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#50385 delay=1d profit=$-35 ratio=-0.24 Cleats Late delivery"
+      },
+      {
+        "id": "TC44424",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#44424 delay=1d profit=$-7 ratio=-0.18 Hockey Late delivery"
+      },
+      {
+        "id": "TC49139",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#49139 delay=1d profit=$6 ratio=0.13 Indoor/Outdoor Games Late delivery"
+      },
+      {
+        "id": "TC59162",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#59162 delay=-1d profit=$18 ratio=0.09 Trade-In Advance shipping"
+      },
+      {
+        "id": "TC1237",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#1237 delay=-1d profit=$10 ratio=0.32 Shop By Sport Advance shipping"
+      },
+      {
+        "id": "TC66658",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#66658 delay=0d profit=$10 ratio=0.10 Golf Apparel Shipping on time"
+      },
+      {
+        "id": "TC24048",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#24048 delay=1d profit=$-5 ratio=-0.05 Women's Apparel Late delivery"
+      },
+      {
+        "id": "TC48083",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#48083 delay=2d profit=$47 ratio=0.27 Indoor/Outdoor Games Late delivery"
+      },
+      {
+        "id": "TC57460",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#57460 delay=2d profit=$50 ratio=0.20 Camping & Hiking Shipping canceled"
+      },
+      {
+        "id": "TC2520",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#2520 delay=2d profit=$48 ratio=0.16 Camping & Hiking Shipping canceled"
+      },
+      {
+        "id": "TC43105",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#43105 delay=4d profit=$5 ratio=0.09 Cleats Late delivery"
+      },
+      {
+        "id": "TC30315",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#30315 delay=2d profit=$11 ratio=0.23 Indoor/Outdoor Games Late delivery"
+      },
+      {
+        "id": "TC56750",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#56750 delay=2d profit=$43 ratio=0.18 Cleats Late delivery"
+      },
+      {
+        "id": "TC38245",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#38245 delay=2d profit=$7 ratio=0.16 Cleats Late delivery"
+      },
+      {
+        "id": "TC51105",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#51105 delay=4d profit=$1 ratio=0.01 Men's Footwear Late delivery"
+      },
+      {
+        "id": "TC39210",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#39210 delay=2d profit=$48 ratio=0.28 Water Sports Late delivery"
+      },
+      {
+        "id": "TC49585",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#49585 delay=2d profit=$11 ratio=0.27 Indoor/Outdoor Games Late delivery"
+      },
+      {
+        "id": "TC52296",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#52296 delay=-2d profit=$-40 ratio=-0.22 Cardio Equipment Advance shipping"
+      },
+      {
+        "id": "TC44340",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#44340 delay=2d profit=$-5 ratio=-0.07 Shop By Sport Late delivery"
+      },
+      {
+        "id": "TC36489",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#36489 delay=1d profit=$-29 ratio=-0.23 Shop By Sport Late delivery"
+      },
+      {
+        "id": "TC12932",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#12932 delay=-1d profit=$-74 ratio=-0.22 Fishing Advance shipping"
+      },
+      {
+        "id": "TC28036",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#28036 delay=-2d profit=$-65 ratio=-0.16 Fishing Advance shipping"
+      },
+      {
+        "id": "TC24494",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#24494 delay=1d profit=$-3 ratio=-0.09 Shop By Sport Late delivery"
+      },
+      {
+        "id": "TC26061",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#26061 delay=-2d profit=$-13 ratio=-0.06 Cleats Advance shipping"
+      },
+      {
+        "id": "TC47768",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#47768 delay=0d profit=$-59 ratio=-0.24 Cleats Shipping on time"
+      },
+      {
+        "id": "TC11998",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#11998 delay=2d profit=$-20 ratio=-0.20 Indoor/Outdoor Games Late delivery"
+      },
+      {
+        "id": "TC50443",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#50443 delay=0d profit=$-31 ratio=-0.20 Shop By Sport Shipping on time"
+      },
+      {
+        "id": "TC7972",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#7972 delay=0d profit=$21 ratio=0.39 Cleats Shipping on time"
+      },
+      {
+        "id": "TC42403",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#42403 delay=0d profit=$30 ratio=0.25 Indoor/Outdoor Games Shipping on time"
+      },
+      {
+        "id": "TC54843",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#54843 delay=0d profit=$66 ratio=0.34 Water Sports Shipping on time"
+      },
+      {
+        "id": "TC43603",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#43603 delay=0d profit=$26 ratio=0.10 Camping & Hiking Shipping on time"
+      },
+      {
+        "id": "TC4530",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#4530 delay=0d profit=$31 ratio=0.17 Water Sports Shipping on time"
+      },
+      {
+        "id": "TC58987",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#58987 delay=0d profit=$71 ratio=0.27 Camping & Hiking Shipping on time"
+      },
+      {
+        "id": "TC8",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#8 delay=0d profit=$73 ratio=0.33 Cleats Shipping on time"
+      },
+      {
+        "id": "TC53866",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#53866 delay=0d profit=$36 ratio=0.10 Fishing Shipping on time"
+      },
+      {
+        "id": "TC33833",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#33833 delay=0d profit=$31 ratio=0.11 Camping & Hiking Shipping on time"
+      },
+      {
+        "id": "TC68108",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#68108 delay=0d profit=$64 ratio=0.34 Water Sports Shipping on time"
+      },
+      {
+        "id": "TC4278",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#4278 delay=0d profit=$66 ratio=0.27 Camping & Hiking Shipping on time"
+      },
+      {
+        "id": "TC18656",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#18656 delay=0d profit=$25 ratio=0.28 Cleats Shipping on time"
+      },
+      {
+        "id": "TC12268",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#12268 delay=0d profit=$51 ratio=0.28 Water Sports Shipping on time"
+      },
+      {
+        "id": "TC8641",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#8641 delay=0d profit=$43 ratio=0.27 Water Sports Shipping on time"
+      },
+      {
+        "id": "TC31218",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#31218 delay=0d profit=$21 ratio=0.11 Women's Apparel Shipping on time"
+      },
+      {
+        "id": "TC51929",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#51929 delay=0d profit=$76 ratio=0.35 Women's Apparel Shipping on time"
+      },
+      {
+        "id": "TC41056",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#41056 delay=0d profit=$43 ratio=0.33 Men's Footwear Shipping on time"
+      },
+      {
+        "id": "TC8328",
+        "status": "TN",
+        "expected": false,
+        "detected": false,
+        "description": "#8328 delay=0d profit=$23 ratio=0.27 Indoor/Outdoor Games Shipping on time"
+      },
+      {
+        "id": "TC5011",
+        "status": "FP",
+        "expected": false,
+        "detected": true,
+        "description": "#5011 delay=0d profit=$41 ratio=0.38 Accessories Shipping on time"
+      },
+      {
+        "id": "TC60118",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "#60118 delay=2d profit=$-67 ratio=-0.17 Fishing Late delivery"
+      },
+      {
+        "id": "TC13390",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#13390 delay=2d profit=$-78 ratio=-0.67 Men's Footwear Late delivery"
+      },
+      {
+        "id": "TC25870",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#25870 delay=4d profit=$-249 ratio=-0.73 Fishing Late delivery"
+      },
+      {
+        "id": "TC29180",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#29180 delay=2d profit=$-130 ratio=-0.80 Cleats Late delivery"
+      },
+      {
+        "id": "TC21249",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "#21249 delay=3d profit=$-65 ratio=-0.30 Cleats Late delivery"
+      },
+      {
+        "id": "TC35440",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "#35440 delay=2d profit=$-84 ratio=-0.23 Fishing Late delivery"
+      },
+      {
+        "id": "TC15690",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#15690 delay=4d profit=$-2 ratio=-0.01 Water Sports Late delivery"
+      },
+      {
+        "id": "TC3875",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#3875 delay=4d profit=$-162 ratio=-0.66 Indoor/Outdoor Games Late delivery"
+      },
+      {
+        "id": "TC16074",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#16074 delay=3d profit=$-70 ratio=-1.75 Shop By Sport Late delivery"
+      },
+      {
+        "id": "TC56975",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "#56975 delay=4d profit=$-11 ratio=-0.23 Women's Apparel Late delivery"
+      },
+      {
+        "id": "TC_STAT_5348",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #5348: Women's Apparel, profit=$11, delay=0d, region=Central America"
+      },
+      {
+        "id": "TC_STAT_16111",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #16111: Men's Footwear, profit=$3, delay=-2d, region=Western Europe"
+      },
+      {
+        "id": "TC_STAT_20152",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "STAT #20152: Cardio Equipment, profit=$10, delay=-1d, region=Western Europe"
+      },
+      {
+        "id": "TC_STAT_25306",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "STAT #25306: Trade-In, profit=$8, delay=-2d, region=Eastern Asia"
+      },
+      {
+        "id": "TC_STAT_33238",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #33238: Hockey, profit=$2, delay=0d, region=US Center "
+      },
+      {
+        "id": "TC_STAT_60146",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #60146: Cardio Equipment, profit=$36, delay=-2d, region=Central America"
+      },
+      {
+        "id": "TC_STAT_69626",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #69626: Cameras , profit=$21, delay=0d, region=Western Europe"
+      },
+      {
+        "id": "TC_STAT_74796",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #74796: Crafts, profit=$44, delay=-2d, region=Eastern Asia"
+      },
+      {
+        "id": "TC_STAT_74723",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #74723: Crafts, profit=$38, delay=0d, region=Southeast Asia"
+      },
+      {
+        "id": "TC_STAT_44301",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #44301: Cardio Equipment, profit=$66, delay=-2d, region=North Africa"
+      },
+      {
+        "id": "TC_STAT_15202",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #15202: Cardio Equipment, profit=$84, delay=-1d, region=Western Europe"
+      },
+      {
+        "id": "TC_STAT_47002",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #47002: Cardio Equipment, profit=$42, delay=-1d, region=Eastern Europe"
+      },
+      {
+        "id": "TC_STAT_5932",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #5932: Accessories, profit=$4, delay=1d, region=South America"
+      },
+      {
+        "id": "TC_STAT_5934",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #5934: Hockey, profit=$34, delay=1d, region=Central America"
+      },
+      {
+        "id": "TC_STAT_9932",
+        "status": "FN",
+        "expected": true,
+        "detected": false,
+        "description": "STAT #9932: Accessories, profit=$-20, delay=-1d, region=Central America"
+      },
+      {
+        "id": "TC_STAT_9914",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #9914: Water Sports, profit=$84, delay=1d, region=Central America"
+      },
+      {
+        "id": "TC_STAT_11954",
+        "status": "TP",
+        "expected": true,
+        "detected": true,
+        "description": "STAT #11954: Accessories, profit=$19, delay=1d, region=Southern Europe"
+      }
+    ],
+    "total_anomalies_detected": 61678
+  },
+  "attribution": {
+    "score": null,
+    "skipped": true,
+    "reason": "--skip-llm flag"
+  },
+  "latency": {
+    "detection_seconds": 87.01,
+    "attribution_seconds_per_item": 11.87,
+    "total_seconds": 98.88,
+    "anomalies_per_second": 708.9
+  }
+}
