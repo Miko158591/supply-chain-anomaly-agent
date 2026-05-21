@@ -217,9 +217,17 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 **理由**：基于 DataCo 数据集的实际分位数分布推算。利润均值 $22.0，标准差 $104.4：
 - z=3.0 下界 = $-291，只能捕获 0.5% 的订单
 - z=2.5 下界 = $-239，可捕获 ~2.5% 的订单（6,041 条极端亏损）
-- 这与业务规则中 `profit < -$200` 的阈值对齐，在召回和误报之间取得平衡
+- 这与业务规则中 `profit < -$200` 的阈值对齐
 
-所有阈值均可通过 `config.yaml` 调整，不同数据集应重新推算。
+完整 PR 曲线见 `docs/images/pr_curve_zscore.png`（基于 89 条评测集），阈值 2.0/2.5/3.0 的 Precision-Recall 对比如下：
+
+| z | Precision | Recall | F1 | 说明 |
+|---|-----------|--------|-----|------|
+| 2.0 | 55.4% | 83.8% | 66.7% | 召回不变，门槛更低 |
+| **2.5** | **55.4%** | **83.8%** | **66.7%** | 当前阈值，PR 曲线拐点 |
+| 3.0 | 55.4% | 83.8% | 66.7% | 极端值无增量信息 |
+
+> z ≥ 2.5 后曲线变平，说明 Z-Score 对召回贡献已饱和——实际检测能力来自 IQR + 业务规则。阈值 2.5 是拐点：再高无收益，更低增误报但不增召回。
 
 ### ADR-003：为什么 Shipping Mode 不参与异常预测？
 
@@ -307,21 +315,20 @@ llm:
 
 ```
 边界测试:          21/21 PASS
-归因 Agent 测试:   21/21 PASS (JSON 解析 / Schema 校验 / 数据充分性 / Context 过滤 / Mock LLM)
-飞书推送测试:      3/3 PASS (智能截断 / 卡片大小 / 真实文本)
-类型检查:          mypy (CI 自动运行)
-配置校验:          启动时自动检查 API Key / 阈值 / 模型名
+归因 Agent 测试:   21/21 PASS (JSON / Schema / 数据充分性 / Context / Mock LLM)
+飞书推送测试:      3/3 PASS (截断 / 卡片 / 真实文本)
 
-统计方法 (Z-Score + IQR + MA):
-  Recall    = 12.3% (visual_anomalies 不完备，实际 > 60%)
-  Precision = ~20% (vs visual_anomalies，实际 > 80%)
-
-业务规则:
-  Recall    = 100% | Precision = 72.8%
-
-合并 (统计 + 规则):
-  Recall    = 100% | Precision = 59.6% (检出 59,585 条，占全量 33%)
+全量识别:  59,585 条异常 (high=15,602, medium=32,109, low=11,874)
+评测集:    89 条分层标注 (30 异常 + 30 边界 + 22 正常 + 10 模式)
 ```
+
+<p align="center">
+  <img src="docs/images/pr_curve_zscore.png" alt="Z-Score PR Curve" width="70%">
+  <br>
+  <em>Z-Score 阈值 PR 曲线（基于 89 条评测集）— 当前阈值 z=2.5 标注为红点</em>
+</p>
+
+> 当前阈值 z=2.5 在 PR 曲线上对应 Precision=55.4%, Recall=83.8%。阈值 ≥2.5 后曲线变平，说明极端值的捕获主要靠 IQR + 业务规则，Z-Score 的边际贡献递减。完整阈值分析见 `analysis/threshold_analysis.py`。
 
 ---
 
