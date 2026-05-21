@@ -496,7 +496,37 @@ CSV → AnomalyDetector → PatternClusterer → AttributionAgent(DeepSeek) → 
 ## 当前运行状态
 
 - Webhook + ngrok 后台运行中
-- 模型：deepseek-v4-flash，max_tokens=4096
+- 模型：deepseek-v4-flash（归因）/ V4 Pro（评委），max_tokens=4096
+- 评测集：89 条分层抽样（30 异常 + 30 边界 + 20 正常 + 10 模式）
+- 检测 F1: 66.7%（悲观下界，边界 34%）
+- 归因整体: 3.4/5 | 证据: 2.2/5（prompt 天花板，瓶颈在数据源）
+
+
+---
+
+# 2026-05-21 — 今日优化总结
+
+## 评测体系升级
+
+| 项目 | 优化前 | 优化后 |
+|------|--------|--------|
+| 样本数 | 10 | 89 |
+| 负例（正常样本） | 0 | 22 |
+| 检测 F1 | 61.5%（口径不可比） | 66.7%（可信基线） |
+| 检测 Recall | 57.1% | 83.8% |
+| 主动暴露 Precision 下降 | 无 | 55.4%，解释 trade-off + 场景选择 |
+
+## 专业叙述优化
+- 旧 Precision 66.7% 标注为"口径不可比"（缺负例）
+- Precision 下降主动解释：边界样本 + 负例拉低 → 供应链场景 Recall 优先
+- F1 标注为"悲观下界"（边界 34% vs 生产 ~10%）
+- eval/README.md 新增方法论说明（抽样策略 + 标注标准 + 评测限制）
+
+## Prompt v3：证据质量强化
+- 5 条证据质量铁律（数字/对比/SOP禁令/quality>quantity/多维度）
+- 好坏示例文件（good_evidence.json + bad_evidence.json）
+- 证据分 2.0→2.2（+0.2），确认已达 prompt 天花板
+- 根因：数据瓶颈（缺 SKU 级/订单级对比数据），非 prompt 问题
 - 每天手动触发：`python skills/supply-chain-monitor/monitor.py --mode daily`
 
 
