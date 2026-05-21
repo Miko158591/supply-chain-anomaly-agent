@@ -1,0 +1,63 @@
+{
+  "description": "高质量 evidence 示例 — 每条含 type + 具体数字 + 对比基准",
+  "version": "prompt_v3",
+  "examples": [
+    {
+      "id": "GOOD-001",
+      "anomaly_type": "Benefit per order (extreme loss)",
+      "evidence": [
+        {
+          "type": "data_point",
+          "content": "订单 #77202 利润 -$277.09，超出正常范围下界 -$239 约 16%"
+        },
+        {
+          "type": "comparison",
+          "content": "该品类 Sporting Goods 近 7 天利润均值 $8.50 vs 全局 $26.39，差距 -$17.89（-68%）"
+        },
+        {
+          "type": "data_point",
+          "content": "交付状态为 Late delivery，延迟 2 天，延迟交付通常触发运费减免或客户补偿"
+        }
+      ],
+      "why_good": "每条 evidence 都有 type 标签（data_point/comparison），content 中包含具体金额（$277.09, $8.50, $26.39）或天数（2天），数字之间形成对比（品类 vs 全局）"
+    },
+    {
+      "id": "GOOD-002",
+      "anomaly_type": "shipping_delay_days (extreme delay)",
+      "evidence": [
+        {
+          "type": "comparison",
+          "content": "该品类 Men's Footwear 近 7 天延迟均值 0.68 天 vs 全局 0.46 天，高出 48%，品类延迟系统性偏高"
+        },
+        {
+          "type": "data_point",
+          "content": "该订单实际延迟 4 天，偏离品类均值 0.68 天约 488%，提示存在额外离散事件（非系统性延迟）"
+        },
+        {
+          "type": "comparison",
+          "content": "Standard Class 全局延迟率 38%，远低于 First Class 的 95%，该订单使用 Standard Class 但延迟 4 天反常"
+        }
+      ],
+      "why_good": "每条 evidence 有明确的数字对比（0.68 vs 0.46, +48%, 488%），type 区分了数据锚点和横向对比，一个 evidence 只陈述一个事实"
+    },
+    {
+      "id": "GOOD-003",
+      "anomaly_type": "Order Item Profit Ratio (abnormally high)",
+      "evidence": [
+        {
+          "type": "data_point",
+          "content": "订单利润率 0.47，品类 Cardio Equipment 近 7 天均值 0.08，该订单是品类均值的 5.9 倍"
+        },
+        {
+          "type": "comparison",
+          "content": "品类均值 0.08 低于全局均值 0.12，品类整体利润空间薄，0.47 的利润率不可能是正常品类表现"
+        },
+        {
+          "type": "data_point",
+          "content": "订单金额 $327.75，该品类通常运输成本高、毛利率低，此利润率与品类特征矛盾"
+        }
+      ],
+      "why_good": "evidence 中每个数字都有明确的对比对象（品类 vs 全局），用倍数（5.9x）和矛盾点（品类薄利 vs 该订单高利）建立推理链条"
+    }
+  ]
+}

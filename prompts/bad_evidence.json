@@ -1,0 +1,49 @@
+{
+  "description": "低质量 evidence 示例 — 这些是之前评测中证据分低的原因",
+  "version": "prompt_v3",
+  "anti_patterns": [
+    {
+      "id": "BAD-001",
+      "what_not_to_do": "笼统描述，无具体数字",
+      "bad_example": {
+        "type": "data_point",
+        "content": "该订单利润严重亏损，属于高风险异常"
+      },
+      "why_bad": "没有具体的亏损金额，没有对比基准，'严重'是主观判断。读者无法判断亏损多大、多异常。",
+      "how_to_fix": "该订单利润 -$277.09，超出正常下界 -$239 约 16%"
+    },
+    {
+      "id": "BAD-002",
+      "what_not_to_do": "纯 SOP 引用，无数据",
+      "bad_example": {
+        "type": "data_point",
+        "content": "SOP-002 指出折扣叠加和运费补贴是大额亏损的两大主因"
+      },
+      "why_bad": "引用 SOP 不是证据——SOP 描述的是通用原则，不能证明这笔特定订单的问题。",
+      "how_to_fix": "该品类近 7 天利润均值 $8.50 vs 全局 $26.39，利润空间极薄，任何额外成本（如运费补贴）都会导致亏损"
+    },
+    {
+      "id": "BAD-003",
+      "what_not_to_do": "堆砌弱证据代替强证据",
+      "bad_example": [
+        {"type": "data_point", "content": "订单金额为 $327.75"},
+        {"type": "data_point", "content": "客户段位为 Consumer"},
+        {"type": "data_point", "content": "市场为 LATAM"},
+        {"type": "data_point", "content": "运输方式为 Standard Class"}
+      ],
+      "why_bad": "4 条全是描述性事实，没有任何对比或偏离计算。这些数据没有论证力——它们只是重复了上下文中的信息，没有建立'为什么异常'的推理。",
+      "how_to_fix": "保留 2 条强证据，每条包含对比或偏离：'品类均值 $8.50 vs 全局 $26.39（-68%）' + '延迟 2 天，Late delivery 通常触发运费补偿'"
+    },
+    {
+      "id": "BAD-004",
+      "what_not_to_do": "多条 evidence 说同一件事",
+      "bad_example": [
+        {"type": "data_point", "content": "该订单利润率异常"},
+        {"type": "data_point", "content": "该订单利润率为 0.47"},
+        {"type": "data_point", "content": "该订单利润率高于品类均值 0.08"}
+      ],
+      "why_bad": "三条 evidence 在说同一件事（利润率高），没有提供多维度的证据。每条 evidence 应该从不同角度论证同一个 cause。",
+      "how_to_fix": "合并为一条 comparison：'订单利润率 0.47，是品类均值 0.08 的 5.9 倍，且品类均值低于全局 0.12'"
+    }
+  ]
+}
