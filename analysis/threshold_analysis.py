@@ -335,16 +335,33 @@ def auto_calibrate():
 
     print(f"\n[3/3] 推荐 z = {recommended:.1f}（{reason}）")
 
-    # Write to config
+    # 只修改 threshold 行，不重写整文件（保留注释和格式）
     config_path = os.path.join(PROJECT, "config.yaml")
     with open(config_path, encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+        lines = f.readlines()
 
-    old_z = config["anomaly"]["zscore"]["threshold"]
-    config["anomaly"]["zscore"]["threshold"] = float(recommended)
+    old_z = None
+    new_lines = []
+    for line in lines:
+        if "threshold:" in line and "zscore" in "".join(new_lines[-5:]):
+            import re
+            old_match = re.search(r"threshold:\s*([\d.]+)", line)
+            if old_match:
+                old_z = float(old_match.group(1))
+            line = re.sub(r"threshold:\s*[\d.]+", f"threshold: {recommended:.1f}", line)
+        new_lines.append(line)
+
+    if old_z is None:
+        # Fallback: yaml load + just change the key
+        with open(config_path, encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        old_z = config["anomaly"]["zscore"]["threshold"]
+        config["anomaly"]["zscore"]["threshold"] = float(recommended)
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(config, f, allow_unicode=True)
 
     with open(config_path, "w", encoding="utf-8") as f:
-        yaml.dump(config, f, allow_unicode=True)
+        f.writelines(new_lines)
 
     print(f"  config.yaml 已更新: zscore.threshold {old_z} → {recommended:.1f}")
     print("\n如需手动调整，编辑 config.yaml → anomaly.zscore.threshold")

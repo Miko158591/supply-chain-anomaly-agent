@@ -1,0 +1,120 @@
+anomaly:
+  business_rules:
+    extreme_delay_days: 3
+    extreme_loss_threshold: -200
+    high_profit_ratio: 0.45
+    high_value_threshold: 500
+  consensus_min: 1
+  iqr:
+    multiplier: 2.0
+  moving_avg:
+    deviation_factor: 2.0
+    window: 7
+  zscore:
+    min_periods: 7
+    threshold: 3.1999999999999993
+cluster:
+  enabled_patterns:
+  - delay_loss_composite
+  - category_concentration
+  - region_concentration
+  method: rule_based
+  min_size: 2
+data:
+  access_logs: tokenized_access_logs.csv
+  db_path: data/processed/supply_chain.db
+  description_file: DescriptionDataCoSupplyChain.csv
+  dimensions:
+    customers:
+    - Customer City
+    - Customer Country
+    - Customer Email
+    - Customer Fname
+    - Customer Lname
+    - Customer Id
+    - Customer Segment
+    - Customer State
+    - Customer Street
+    - Customer Zipcode
+    - Customer Password
+    logistics:
+    - Department Id
+    - Department Name
+    - Latitude
+    - Longitude
+    - Market
+    - Shipping Mode
+    orders:
+    - Type
+    - Days for shipping (real)
+    - Days for shipment (scheduled)
+    - Benefit per order
+    - Sales per customer
+    - Delivery Status
+    - Late_delivery_risk
+    - Order Id
+    - Order Item Id
+    - Order Customer Id
+    - Order Item Discount
+    - Order Item Discount Rate
+    - Order Item Product Price
+    - Order Item Profit Ratio
+    - Order Item Quantity
+    - Sales
+    - Order Item Total
+    - Order Profit Per Order
+    - Order Region
+    - Order State
+    - Order Status
+    - Order City
+    - Order Country
+    - Order Zipcode
+    - order date (DateOrders)
+    - shipping date (DateOrders)
+    - Shipping Mode
+    products:
+    - Category Id
+    - Category Name
+    - Product Card Id
+    - Product Category Id
+    - Product Description
+    - Product Image
+    - Product Name
+    - Product Price
+    - Product Status
+  main_file: DataCoSupplyChainDataset.csv
+  output_dir: data/output
+  raw_dir: data/raw
+llm:
+  deepseek:
+    api_key: sk-548224fdcd564fddae81180caaca1b0a
+    base_url: https://api.deepseek.com
+    max_tokens: 4096
+    model: deepseek-v4-flash
+    temperature: 0.3
+  judge:
+    api_key: sk-548224fdcd564fddae81180caaca1b0a
+    base_url: https://api.deepseek.com
+    max_tokens: 4096
+    model: deepseek-v4-pro
+  vision:
+    api_key: ''
+    base_url: https://api.deepseek.com
+    model: deepseek-v4-flash
+logging:
+  backup_count: 5
+  dir: logs
+  file: logs/app.log
+  level: INFO
+  max_bytes: 10485760
+notify:
+  lark:
+    app_id: cli_aa87430bdfb8dcc3
+    app_secret: 4PO6ckQs5JZ8hXToNZ3xafuf0pojxlAs
+    chat_id: oc_76e67c86a48d4d399c337e1e4bef33c9
+    enable_push: true
+    webhook_url: ''
+schedule:
+  default_time: 08:00
+  retry_count: 3
+  retry_delay_seconds: 30
