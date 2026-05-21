@@ -21,7 +21,7 @@ CSV → AnomalyDetector（记录级业务规则 + 日聚合移动平均）
 ```
 
 **核心模块**：
-- `analysis/anomaly_detector.py` — 检测引擎（记录级 + 日聚合双粒度），59,585 条/次
+- `analysis/anomaly_detector.py` — 检测引擎（记录级 + 日聚合双粒度），61,678 条/次
 - `analysis/pattern_clusterer.py` — 模式聚类（3 规则 + ROI 估算，$156K）
 - `analysis/attribution_agent.py` — 归因引擎（Schema 校验 + 3 次重试 + context 按 metric 过滤）
 - `analysis/threshold_analysis.py` — 消融实验 + 阈值自动校准（`--calibrate` 自动写 config）
