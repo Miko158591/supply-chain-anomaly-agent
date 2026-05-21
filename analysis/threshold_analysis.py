@@ -119,62 +119,88 @@ def run_real_sweep(df: pd.DataFrame, ground_truth: dict, current_threshold: floa
     return results
 
 
+def _setup_chinese_font():
+    """设置中文字体，解决 matplotlib 乱码。"""
+    import matplotlib.font_manager as fm
+    # Windows: 尝试多个中文字体
+    for font_name in ["Microsoft YaHei", "SimHei", "Noto Sans CJK SC", "WenQuanYi Micro Hei"]:
+        for f in fm.fontManager.ttflist:
+            if font_name in f.name:
+                plt.rcParams["font.sans-serif"] = [f.name, "DejaVu Sans"]
+                plt.rcParams["axes.unicode_minus"] = False
+                return f.name
+    # Fallback: English only
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+    plt.rcParams["axes.unicode_minus"] = False
+    return "DejaVu Sans"
+
+
 def plot_pr_curve(results: list, current: float, metric: str, output_path: str):
     """画 PR 曲线，标注当前阈值。"""
-    plt.figure(figsize=(8, 6))
+    font_name = _setup_chinese_font()
+    print(f"  使用字体: {font_name}")
+
+    fig, ax = plt.subplots(figsize=(10, 7))
 
     precisions = [r["precision"] for r in results]
     recalls = [r["recall"] for r in results]
     thresholds = [r["threshold"] for r in results]
 
-    # 连线的 PR 曲线
-    plt.plot(recalls, precisions, "b-o", markersize=5, linewidth=1.5, label="PR 曲线")
+    # 数据范围（留 10% 边距让曲线占更大面积）
+    r_min, r_max = min(recalls), max(recalls)
+    p_min, p_max = min(precisions), max(precisions)
+    r_pad = (r_max - r_min) * 0.15 if r_max > r_min else 0.05
+    p_pad = (p_max - p_min) * 0.15 if p_max > p_min else 0.05
 
-    # 在每个点标注阈值（每隔一个点标一次，避免重叠）
+    # 连线
+    ax.plot(recalls, precisions, "b-o", markersize=6, linewidth=2, label="PR Curve")
+
+    # 标注阈值
     for i, (th, pr, rc) in enumerate(zip(thresholds, precisions, recalls)):
         if i % 2 == 0:
-            plt.annotate(
-                f"{th:.1f}",
+            ax.annotate(
+                f"z={th:.1f}",
                 (rc, pr),
                 textcoords="offset points",
-                xytext=(8, 4),
-                fontsize=7,
-                color="gray",
+                xytext=(10, 5),
+                fontsize=8,
+                color="#555555",
             )
 
-    # 标出当前阈值
-    current_idx = min(
-        range(len(thresholds)), key=lambda i: abs(thresholds[i] - current)
-    )
-    plt.scatter(
+    # 当前阈值红点
+    current_idx = min(range(len(thresholds)), key=lambda i: abs(thresholds[i] - current))
+    ax.scatter(
         [recalls[current_idx]],
         [precisions[current_idx]],
-        color="red",
-        s=120,
-        zorder=5,
-        label=f"当前阈值 z={current}",
+        color="red", s=150, zorder=5,
+        label=f"Current z={current}",
     )
-    plt.annotate(
-        f"  z={current}\n  P={precisions[current_idx]:.1%} R={recalls[current_idx]:.1%}",
+    ax.annotate(
+        f"z={current}\nP={precisions[current_idx]:.1%}  R={recalls[current_idx]:.1%}",
         (recalls[current_idx], precisions[current_idx]),
         textcoords="offset points",
-        xytext=(15, -15),
-        fontsize=9,
-        color="red",
-        fontweight="bold",
+        xytext=(15, -20),
+        fontsize=10, color="red", fontweight="bold",
     )
 
-    plt.xlabel("Recall", fontsize=12)
-    plt.ylabel("Precision", fontsize=12)
-    plt.title(f"Z-Score 阈值 PR 曲线 ({metric})", fontsize=14)
-    plt.legend(loc="lower left")
-    plt.grid(True, alpha=0.3)
-    plt.xlim(0, 1.05 if max(recalls) > 0.9 else max(recalls) + 0.1)
-    plt.ylim(0, min(1.05, max(precisions) + 0.1))
+    ax.set_xlabel("Recall", fontsize=13)
+    ax.set_ylabel("Precision", fontsize=13)
+    ax.set_title(f"Z-Score Threshold PR Curve", fontsize=15, fontweight="bold")
+    ax.legend(loc="lower left", fontsize=10)
+    ax.grid(True, alpha=0.3)
 
+    # 放大到数据范围
+    ax.set_xlim(max(0, r_min - r_pad), min(1.02, r_max + r_pad))
+    ax.set_ylim(max(0, p_min - p_pad), min(1.02, p_max + p_pad))
+
+    # 去掉顶部和右侧边框
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout(pad=2)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close()
+    fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
     print(f"PR 曲线已保存: {output_path}")
 
 
