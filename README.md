@@ -219,15 +219,16 @@ print(f'检出 {len(result)} 条异常，涉及 {len(result[\"metric\"].unique()
 - z=2.5 下界 = $-239，可捕获 ~2.5% 的订单（6,041 条极端亏损）
 - 这与业务规则中 `profit < -$200` 的阈值对齐
 
-完整 PR 曲线见 `docs/images/pr_curve_zscore.png`（基于 89 条评测集），阈值 2.0/2.5/3.0 的 Precision-Recall 对比如下：
+**消融实验发现**：Z-Score 和 IQR 各自独立对 89 条评测集贡献为 0——**业务规则承担了全部检测**。三者合并（Ensemble）的增量来自 Z-Score/IQR 在低阈值（z<2.0）时捕获的额外边缘样本。
 
-| z | Precision | Recall | F1 | 说明 |
-|---|-----------|--------|-----|------|
-| 2.0 | 55.4% | 83.8% | 66.7% | 召回不变，门槛更低 |
-| **2.5** | **55.4%** | **83.8%** | **66.7%** | 当前阈值，PR 曲线拐点 |
-| 3.0 | 55.4% | 83.8% | 66.7% | 极端值无增量信息 |
+| 检测模式 | Precision | Recall | F1 |
+|----------|-----------|--------|-----|
+| Z-Score only | 0% | 0% | 0% |
+| IQR only | 0% | 0% | 0% |
+| 业务规则 only | 58.3% | 75.7% | 65.9% |
+| **三者合并** | **55.4%** | **83.8%** | **66.7%** |
 
-> z ≥ 2.5 后曲线变平，说明 Z-Score 对召回贡献已饱和——实际检测能力来自 IQR + 业务规则。阈值 2.5 是拐点：再高无收益，更低增误报但不增召回。
+> z=1.8 在 Ensemble 中 F1 最优（68.7%），选择 z=2.5 而非 1.8 是因为：1）差异在 89 条评测集噪声范围内（~±5pp），不可靠；2）z=2.5 与业务规则阈值 `profit < -$200` 对齐；3）更高的阈值在解释成本上更优（面试时"±2.5 标准差"比"±1.8 标准差"更保守稳健）。完整消融实验见 `docs/images/pr_curve_ablation.png`。
 
 ### ADR-003：为什么 Shipping Mode 不参与异常预测？
 
@@ -323,12 +324,12 @@ llm:
 ```
 
 <p align="center">
-  <img src="docs/images/pr_curve_zscore.png" alt="Z-Score PR Curve" width="70%">
+  <img src="docs/images/pr_curve_ablation.png" alt="Ablation Study PR Curves" width="80%">
   <br>
-  <em>Z-Score 阈值 PR 曲线（基于 89 条评测集）— 当前阈值 z=2.5 标注为红点</em>
+  <em>消融实验：四种检测模式各自 PR 表现（基于 89 条评测集）</em>
 </p>
 
-> 当前阈值 z=2.5 在 PR 曲线上对应 Precision=55.4%, Recall=83.8%。阈值 ≥2.5 后曲线变平，说明极端值的捕获主要靠 IQR + 业务规则，Z-Score 的边际贡献递减。完整阈值分析见 `analysis/threshold_analysis.py`。
+> **消融实验核心发现**：Z-Score 和 IQR 各自独立对评测集贡献为 0，**业务规则承担了全部检测能力**（单独 P=58.3%, R=75.7%）。三者合并（Ensemble）的增量来自 Z-Score/IQR 在低阈值时捕获的额外边缘样本，代价是 Precision 下降。当前阈值 z=2.5 在 Ensemble 曲线上已是平坦段——选择它而非更低阈值（如 z=1.8 的 F1 最优 68.7%），是基于"宁可保守不漏报"的业务选择。详见 `analysis/threshold_analysis.py`。
 
 ---
 

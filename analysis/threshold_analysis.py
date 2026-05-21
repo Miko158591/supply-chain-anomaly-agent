@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-阈值敏感性分析 — 扫描 Z-Score/IQR 阈值，画 PR 曲线。
+阈值消融实验 — 四种检测模式各自扫阈值，画 PR 曲线对比。
 
 用法: python analysis/threshold_analysis.py
-输出: docs/images/pr_curve_zscore.png + pr_curve_iqr.png
+输出: docs/images/pr_curve_ablation.png
 """
 
 import json
@@ -24,168 +24,212 @@ from analysis.anomaly_detector import AnomalyDetector
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def load_test_orders(path: str = "eval/test_cases.json") -> dict:
-    with open(path, encoding="utf-8") as f:
+# ═══════════════════════════ Helpers ═══════════════════════════
+
+def load_ground_truth() -> dict:
+    with open(os.path.join(PROJECT, "eval", "test_cases.json"), encoding="utf-8") as f:
         data = json.load(f)
-    anomaly_oids = set()
-    normal_oids = set()
+    anomaly = set()
+    normal = set()
     for tc in data["test_cases"]:
         oid = str(tc["data_snapshot"].get("Order Id", ""))
         if tc.get("expected", {}).get("is_anomaly"):
-            anomaly_oids.add(oid)
+            anomaly.add(oid)
         else:
-            normal_oids.add(oid)
-    return {"anomaly": anomaly_oids, "normal": normal_oids}
+            normal.add(oid)
+    return {"anomaly": anomaly, "normal": normal}
 
 
-def compute_pr(detected_oids: set, ground_truth: dict) -> tuple:
-    """只在评测集范围内计算 PR——不对全量订单做 FP 计数。"""
-    all_test = ground_truth["anomaly"] | ground_truth["normal"]
-    detected_in_test = detected_oids & all_test
-    tp = len(detected_in_test & ground_truth["anomaly"])
-    fp = len(detected_in_test & ground_truth["normal"])
-    fn = len(ground_truth["anomaly"] - detected_oids)
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-    return precision, recall
-
-
-def run_zscore_sweep(df: pd.DataFrame, ground_truth: dict) -> list:
-    """Z-Score 阈值 1.5→4.0 扫描。"""
-    results = []
-    thresholds = np.arange(1.5, 4.1, 0.1)
-    for t in thresholds:
-        detector = AnomalyDetector.__new__(AnomalyDetector)
-        detector.threshold_config = {
-            "zscore": {"threshold": float(t), "min_periods": 7},
-            "iqr": {"multiplier": 2.0},
-            "moving_avg": {"window": 7, "deviation_factor": 2.0},
-            "business_rules": {"extreme_loss_threshold": -200},
-            "consensus_min": 1,
-        }
-        detector.config_path = None
-        # Use detect_all with override
-        import copy
-        orig = AnomalyDetector.__init__
-
-        # Simpler: just use zscore detection directly
-        result = detector.detect_all(df)
-        detected = set()
+def get_detected_oids(result) -> set:
+    """从检测结果（DataFrame 或 list）提取被检出的 Order ID。"""
+    oids = set()
+    if isinstance(result, list):
+        for row in result:
+            ctx = row.get("context", {}) if isinstance(row, dict) else {}
+            oid = str(ctx.get("Order Id", "")) if ctx.get("Order Id") else ""
+            if oid:
+                oids.add(oid)
+    else:
         for _, row in result.iterrows():
             ctx = row.get("context", {})
             oid = str(ctx.get("Order Id", "")) if isinstance(ctx, dict) else ""
             if oid:
-                detected.add(oid)
-        p, r = compute_pr(detected, ground_truth)
-        results.append({"threshold": round(t, 1), "precision": p, "recall": r})
-        print(f"  z={t:.1f}: P={p:.3f} R={r:.3f} F1={2*p*r/(p+r) if (p+r)>0 else 0:.3f}")
-    return results
+                oids.add(oid)
+    return oids
 
 
-def run_real_sweep(df: pd.DataFrame, ground_truth: dict, current_threshold: float) -> list:
-    """全流程阈值扫描（Z-Score 阈值变化 + detect_all 完整流程）。
-
-    每次修改 config 中的 zscore.threshold 后重新跑完整检测。
-    """
-    results = []
-    config_path = os.path.join(PROJECT, "config.yaml")
-    with open(config_path, encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
-    thresholds = np.arange(1.5, 4.1, 0.2)
-
-    for t in thresholds:
-        config["anomaly"]["zscore"]["threshold"] = float(t)
-        tmp_path = os.path.join(PROJECT, "config_tmp.yaml")
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            yaml.dump(config, f)
-
-        detector = AnomalyDetector(config_path=tmp_path)
-        result = detector.detect_all(df)
-        detected = set()
-        for _, row in result.iterrows():
-            ctx = row.get("context", {})
-            oid = str(ctx.get("Order Id", "")) if isinstance(ctx, dict) else ""
-            if oid:
-                detected.add(oid)
-        p, r = compute_pr(detected, ground_truth)
-        results.append({"threshold": round(t, 1), "precision": p, "recall": r})
-
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
-
-        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
-        marker = " <-- current" if abs(t - current_threshold) < 0.01 else ""
-        print(f"  z={t:.1f}: P={p:.3f} R={r:.3f} F1={f1:.3f}{marker}")
-
-    return results
+def compute_pr(detected: set, gt: dict) -> tuple:
+    all_test = gt["anomaly"] | gt["normal"]
+    in_test = detected & all_test
+    tp = len(in_test & gt["anomaly"])
+    fp = len(in_test & gt["normal"])
+    fn = len(gt["anomaly"] - detected)
+    p = tp / (tp + fp) if (tp + fp) > 0 else 0
+    r = tp / (tp + fn) if (tp + fn) > 0 else 0
+    return p, r
 
 
-def _get_cjk_font_prop():
-    """获取中文字体属性对象。"""
-    import matplotlib.font_manager as fm
-    for f in fm.fontManager.ttflist:
-        if "Microsoft YaHei" in f.name and "Regular" in str(f.style):
-            return fm.FontProperties(fname=f.fname)
-    # fallback: any YaHei
+def get_font():
     for f in fm.fontManager.ttflist:
         if "YaHei" in f.name:
-            return fm.FontProperties(fname=f.fname)
-    for f in fm.fontManager.ttflist:
-        if "Noto Sans SC" in f.name:
             return fm.FontProperties(fname=f.fname)
     return fm.FontProperties()
 
 
-def plot_pr_curve(results: list, current: float, metric: str, output_path: str):
-    """画 PR 曲线，标注当前阈值。"""
-    fp = _get_cjk_font_prop()
-    fp_small = fm.FontProperties(fname=fp.get_file())
-    fp_small.set_size(9)
-    print(f"  字体: {fp.get_file()}")
+def make_tmp_config(overrides: dict) -> str:
+    """生成临时 config，返回路径。"""
+    cfg_path = os.path.join(PROJECT, "config.yaml")
+    with open(cfg_path, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+    for k, v in overrides.items():
+        parts = k.split(".")
+        target = cfg
+        for p in parts[:-1]:
+            target = target.setdefault(p, {})
+        target[parts[-1]] = v
+    tmp = os.path.join(PROJECT, "_tmp_cfg.yaml")
+    with open(tmp, "w", encoding="utf-8") as f:
+        yaml.dump(cfg, f)
+    return tmp
 
-    fig, ax = plt.subplots(figsize=(10, 7))
 
-    precisions = [r["precision"] for r in results]
-    recalls = [r["recall"] for r in results]
-    thresholds = [r["threshold"] for r in results]
+# ═══════════════════════════ Sweeps ═══════════════════════════
 
-    # 连线
-    ax.plot(recalls, precisions, "b-o", markersize=6, linewidth=2, label="PR Curve")
+def sweep_zscore(df, gt) -> list:
+    """Z-Score 单独检测，阈值 1.0→4.0"""
+    results = []
+    for z in np.arange(1.0, 4.1, 0.2):
+        tmp = make_tmp_config({
+            "anomaly.zscore.threshold": float(z),
+            "anomaly.consensus_min": 1,
+        })
+        detector = AnomalyDetector(config_path=tmp)
+        result = detector.detect_zscore(df)
+        oids = get_detected_oids(result)
+        p, r = compute_pr(oids, gt)
+        results.append({"threshold": round(z, 1), "precision": p, "recall": r})
+        os.remove(tmp)
+        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
+        print(f"  Z-Score z={z:.1f}: P={p:.3f} R={r:.3f} F1={f1:.3f}")
+    return results
 
-    # 标注阈值
-    for i, (th, pr, rc) in enumerate(zip(thresholds, precisions, recalls)):
-        if i % 2 == 0:
-            ax.annotate(
-                f"z={th:.1f}",
-                (rc, pr), textcoords="offset points", xytext=(10, 5),
-                fontsize=8, color="#555555",
-            )
 
-    # 当前阈值红点
-    current_idx = min(range(len(thresholds)), key=lambda i: abs(thresholds[i] - current))
-    ax.scatter(
-        [recalls[current_idx]], [precisions[current_idx]],
-        color="red", s=150, zorder=5, label=f"Current z={current}",
-    )
-    ax.annotate(
-        f"z={current}\nP={precisions[current_idx]:.1%}  R={recalls[current_idx]:.1%}",
-        (recalls[current_idx], precisions[current_idx]),
-        textcoords="offset points", xytext=(15, -20),
-        fontsize=10, color="red", fontweight="bold",
-    )
+def sweep_iqr(df, gt) -> list:
+    """IQR 单独检测，倍数 1.0→3.0"""
+    results = []
+    for k in np.arange(1.0, 3.1, 0.2):
+        tmp = make_tmp_config({
+            "anomaly.iqr.multiplier": float(k),
+            "anomaly.consensus_min": 1,
+        })
+        detector = AnomalyDetector(config_path=tmp)
+        result = detector.detect_iqr(df)
+        oids = get_detected_oids(result)
+        p, r = compute_pr(oids, gt)
+        results.append({"threshold": round(k, 1), "precision": p, "recall": r})
+        os.remove(tmp)
+        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
+        print(f"  IQR k={k:.1f}: P={p:.3f} R={r:.3f} F1={f1:.3f}")
+    return results
 
-    ax.set_xlabel("Recall", fontsize=13)
-    ax.set_ylabel("Precision", fontsize=13)
-    ax.set_title("Z-Score Threshold PR Curve", fontsize=15, fontweight="bold")
-    ax.legend(loc="lower left", fontsize=10)
-    ax.grid(True, alpha=0.3)
 
-    # 固定坐标范围，让曲线占满整个图
-    ax.set_xlim(0.80, 1.0)
-    ax.set_ylim(0.50, 0.60)
+def sweep_business_rule(df, gt) -> list:
+    """业务规则单独检测（无阈值扫描，固定配置）。"""
+    results = []
+    tmp = make_tmp_config({"anomaly.consensus_min": 1})
+    detector = AnomalyDetector(config_path=tmp)
+    result = detector.detect_business_rule(df)
+    oids = get_detected_oids(result)
+    p, r = compute_pr(oids, gt)
+    # 业务规则无阈值，重复填充使曲线可画
+    for _ in np.arange(1.0, 4.1, 0.2):
+        results.append({"threshold": 0, "precision": p, "recall": r})
+    os.remove(tmp)
+    f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
+    print(f"  业务规则: P={p:.3f} R={r:.3f} F1={f1:.3f}")
+    return results
+
+
+def sweep_ensemble(df, gt) -> list:
+    """三者合并（detect_all），扫 Z-Score 阈值。"""
+    results = []
+    for z in np.arange(1.0, 4.1, 0.2):
+        tmp = make_tmp_config({
+            "anomaly.zscore.threshold": float(z),
+            "anomaly.consensus_min": 1,
+        })
+        detector = AnomalyDetector(config_path=tmp)
+        result = detector.detect_all(df)
+        oids = get_detected_oids(result)
+        p, r = compute_pr(oids, gt)
+        results.append({"threshold": round(z, 1), "precision": p, "recall": r})
+        os.remove(tmp)
+        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
+        print(f"  Ensemble z={z:.1f}: P={p:.3f} R={r:.3f} F1={f1:.3f}")
+    return results
+
+
+# ═══════════════════════════ Plot ═══════════════════════════
+
+def plot_ablation(zs, iqr, br, ens, output_path: str):
+    """4 条 PR 曲线同图。"""
+    font = get_font()
+    print(f"  字体: {font.get_file()}")
+
+    fig, ax = plt.subplots(figsize=(11, 8))
+
+    colors = {"Z-Score Only": "#2196F3", "IQR Only": "#FF9800",
+              "Business Rules Only": "#4CAF50", "Ensemble (All Three)": "#E91E63"}
+    markers = {"Z-Score Only": "o", "IQR Only": "s",
+               "Business Rules Only": "D", "Ensemble (All Three)": "P"}
+
+    datasets = [
+        ("Z-Score Only", zs, colors["Z-Score Only"], markers["Z-Score Only"]),
+        ("IQR Only", iqr, colors["IQR Only"], markers["IQR Only"]),
+        ("Business Rules Only", br, colors["Business Rules Only"], markers["Business Rules Only"]),
+        ("Ensemble (All Three)", ens, colors["Ensemble (All Three)"], markers["Ensemble (All Three)"]),
+    ]
+
+    for label, data, color, marker in datasets:
+        prs = [d["precision"] for d in data]
+        rcs = [d["recall"] for d in data]
+        # 去重：只保留唯一 (P,R) 点
+        seen = set()
+        x, y = [], []
+        for px, py in zip(rcs, prs):
+            key = (round(px, 4), round(py, 4))
+            if key not in seen:
+                seen.add(key)
+                x.append(px)
+                y.append(py)
+        ax.scatter(x, y, c=color, marker=marker, s=80, zorder=3, label=label, edgecolors="white", linewidth=0.5)
+        if len(x) > 1:
+            pts = sorted(zip(x, y))
+            ax.plot([p[0] for p in pts], [p[1] for p in pts], color=color, linewidth=1.5, alpha=0.6)
+
+    # 标注关键点
+    # Z-Score 极值
+    zs_pts = sorted(zip([d["recall"] for d in zs], [d["precision"] for d in zs], [d["threshold"] for d in zs]))
+    if zs_pts:
+        best = max(zs_pts, key=lambda t: 2*t[0]*t[1]/(t[0]+t[1]) if (t[0]+t[1])>0 else 0)
+        ax.annotate(f"Z-Score best\nz={best[2]:.1f}", (best[0], best[1]),
+                    textcoords="offset points", xytext=(10, -15), fontsize=9, color=colors["Z-Score Only"])
+    # Ensemble
+    ens_pts = sorted(zip([d["recall"] for d in ens], [d["precision"] for d in ens]))
+    if ens_pts:
+        mid = ens_pts[len(ens_pts)//2]
+        ax.annotate("Ensemble", (mid[0], mid[1]),
+                    textcoords="offset points", xytext=(10, 10), fontsize=9, color=colors["Ensemble (All Three)"])
+
+    ax.set_xlabel("Recall", fontsize=14, fontproperties=font)
+    ax.set_ylabel("Precision", fontsize=14, fontproperties=font)
+    ax.set_title("Ablation Study: Per-Method PR Curves", fontsize=16, fontweight="bold")
+    ax.legend(loc="lower left", fontsize=10, framealpha=0.9)
+    ax.grid(True, alpha=0.25)
+
+    # y 轴从 0 开始，x 轴从 0 开始
+    ax.set_xlim(-0.02, 1.02)
+    ax.set_ylim(-0.02, 1.02)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -194,55 +238,44 @@ def plot_pr_curve(results: list, current: float, metric: str, output_path: str):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"PR 曲线已保存: {output_path}")
+    print(f"消融曲线已保存: {output_path}")
 
+
+# ═══════════════════════════ Main ═══════════════════════════
 
 def main():
-    print("=== 阈值敏感性分析 ===")
+    print("=== 消融实验 ===")
+    print()
 
-    # 加载数据
-    print("\n[1/4] 加载数据...")
     df = pd.read_csv(
         os.path.join(PROJECT, "data", "raw", "DataCoSupplyChainDataset.csv"),
-        encoding="latin-1",
-        low_memory=False,
+        encoding="latin-1", low_memory=False,
     )
     df["shipping_delay_days"] = df["Days for shipping (real)"] - df["Days for shipment (scheduled)"]
-    print(f"  数据: {len(df):,} 行")
+    gt = load_ground_truth()
+    print(f"数据: {len(df):,} 行 | 评测集: {len(gt['anomaly'])} 异常 + {len(gt['normal'])} 正常")
 
-    ground_truth = load_test_orders()
+    print("\n[1/4] Z-Score 单独检测 (z=1.0→4.0)...")
+    zs_results = sweep_zscore(df, gt)
 
-    # 加载当前阈值
-    with open(os.path.join(PROJECT, "config.yaml"), encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    current_z = config["anomaly"]["zscore"]["threshold"]
-    print(f"  当前 Z-Score 阈值: {current_z}")
+    print("\n[2/4] IQR 单独检测 (k=1.0→3.0)...")
+    iqr_results = sweep_iqr(df, gt)
 
-    # Z-Score 扫描
-    print("\n[2/4] Z-Score 阈值扫描 (1.5→4.0)...")
-    z_results = run_real_sweep(df, ground_truth, current_z)
+    print("\n[3/4] 业务规则单独检测...")
+    br_results = sweep_business_rule(df, gt)
 
-    # 阈值对比表
-    print("\n[3/4] 阈值对比表 (用于 ADR):")
-    for r in z_results:
-        th = r["threshold"]
-        p, rc = r["precision"], r["recall"]
-        f1 = 2 * p * rc / (p + rc) if (p + rc) > 0 else 0
-        if th in (2.0, 2.5, 3.0):
-            print(f"  z={th:.1f}: P={p:.1%} R={rc:.1%} F1={f1:.1%}")
+    print("\n[4/4] 三者合并 (Ensemble)...")
+    ens_results = sweep_ensemble(df, gt)
 
-    # 画图
-    print("\n[4/4] 生成 PR 曲线...")
-    plot_pr_curve(z_results, current_z, "Z-Score", os.path.join(PROJECT, "docs", "images", "pr_curve_zscore.png"))
+    # 报告
+    print("\n=== 消融结果 ===")
+    for label, data in [("Z-Score", zs_results), ("IQR", iqr_results), ("业务规则", br_results), ("三者合并", ens_results)]:
+        best = max(data, key=lambda d: 2*d["recall"]*d["precision"]/(d["recall"]+d["precision"]) if (d["recall"]+d["precision"])>0 else 0)
+        f1 = 2*best["recall"]*best["precision"]/(best["recall"]+best["precision"]) if (best["recall"]+best["precision"])>0 else 0
+        print(f"  {label}: best P={best['precision']:.1%} R={best['recall']:.1%} F1={f1:.1%}")
 
-    # 输出阈值对比表数据
-    print("\n=== 阈值对比表 (z=2.0/2.5/3.0) ===")
-    for r in z_results:
-        if r["threshold"] in (2.0, 2.5, 3.0):
-            p, rc = r["precision"], r["recall"]
-            f1 = 2 * p * rc / (p + rc) if (p + rc) > 0 else 0
-            print(f"z={r['threshold']:.1f}  P={p:.1%}  R={rc:.1%}  F1={f1:.1%}")
-
+    output = os.path.join(PROJECT, "docs", "images", "pr_curve_ablation.png")
+    plot_ablation(zs_results, iqr_results, br_results, ens_results, output)
     print("\n完成。")
 
 
