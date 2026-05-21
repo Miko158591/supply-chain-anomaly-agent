@@ -329,7 +329,28 @@ def generate_excel(project_root: str, severity: str, report_date: str) -> Option
     os.makedirs(output_dir, exist_ok=True)
     filename = f"anomalies_{severity}_{report_date}.xlsx"
     filepath = os.path.join(output_dir, filename)
-    df.to_excel(filepath, index=False, engine="openpyxl")
+
+    # 写入 Excel（含 ROI 分析 Sheet）
+    with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name=f"{severity.upper()}风险异常", index=False)
+
+        # ROI 分析 Sheet
+        report_data = load_latest_report(project_root)
+        if report_data:
+            roi = report_data.get("stats", {}).get("patterns", {}).get("roi", {})
+            if roi and roi.get("total_potential_savings", 0) > 0:
+                roi_rows = [{"指标": "潜在挽回总额", "值": f"${roi['total_potential_savings']:,.0f}"}]
+                roi_rows.append({"指标": "估算说明",
+                                 "值": roi.get("confidence_note", "")[:120]})
+                for b in roi.get("breakdown", []):
+                    roi_rows.append({
+                        "指标": b["pattern_name"],
+                        "值": f"${b['potential_savings']:,.0f} ({b['methodology']})",
+                    })
+                pd.DataFrame(roi_rows).to_excel(
+                    writer, sheet_name="ROI分析", index=False
+                )
+
     logger.info(f"Excel 已生成: {filepath} ({len(df):,} 条)")
     return filepath# ═══════════════════════════════════════════
 # 消息解析
