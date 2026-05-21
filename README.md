@@ -1,8 +1,10 @@
 # 供应链异常智能监控与归因 Agent
 
+[![Tests](https://github.com/Miko158591/supply-chain-anomaly-agent/actions/workflows/test.yml/badge.svg)](https://github.com/Miko158591/supply-chain-anomaly-agent/actions/workflows/test.yml)
+
 > **一句话**：自动监控供应链数据 → 统计方法检测异常 → DeepSeek AI 归因分析 → 飞书实时推送。
 >
-> 工业工程专业个人开发项目。
+> 工业工程专业个人项目。
 
 <p align="center">
   <img src="docs/images/eda_delivery_distribution.png" alt="交付状态分布" width="48%">
@@ -47,9 +49,26 @@
 
 ---
 
-## 快速开始（5 分钟）
+## 快速开始
 
-### 1. 环境准备
+### 方式 A：Docker 一键启动（推荐）
+
+```bash
+git clone https://github.com/Miko158591/supply-chain-anomaly-agent.git
+cd supply-chain-anomaly-agent
+cp config.example.yaml config.yaml
+# 编辑 config.yaml → 填入 DeepSeek API Key + 飞书配置
+
+# 跑一次日报
+docker compose up monitor
+
+# 启动 webhook（配合 ngrok 实现 @机器人 交互）
+docker compose up webhook
+```
+
+### 方式 B：本地 Python 环境
+
+#### 1. 环境准备
 
 ```bash
 # Python 3.10+ 必须

@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  monitor:
+    build: .
+    image: supply-chain-monitor
+    container_name: supply-chain-monitor
+    volumes:
+      # 挂载配置文件（含 DeepSeek API Key + 飞书配置）
+      - ./config.yaml:/app/config.yaml:ro
+      # 挂载数据目录（数据集 + 输出）
+      - ./data:/app/data
+      # 挂载日志
+      - ./logs:/app/logs
+    environment:
+      - TZ=Asia/Shanghai
+    command: python skills/supply-chain-monitor/monitor.py --mode daily
+    restart: "no"
+
+  # Webhook 服务器（需要配合 ngrok 使用，见 README）
+  webhook:
+    build: .
+    image: supply-chain-monitor
+    container_name: supply-chain-webhook
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./data:/app/data
+      - ./logs:/app/logs
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=Asia/Shanghai
+    command: python skills/supply-chain-monitor/feishu_webhook.py --port 8080
+    restart: unless-stopped

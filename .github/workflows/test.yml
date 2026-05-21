@@ -1,0 +1,98 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Copy config
+        run: |
+          cp config.example.yaml config.yaml
+          sed -i 's/sk-your-deepseek-api-key-here/sk-placeholder/g' config.yaml
+
+      - name: Download dataset
+        run: |
+          mkdir -p data/raw
+          python -c "
+          import pandas as pd, numpy as np
+          # 生成最小测试数据集（结构同 DataCo）
+          np.random.seed(42)
+          n = 5000
+          df = pd.DataFrame({
+              'Type': np.random.choice(['DEBIT','TRANSFER','CASH'], n),
+              'Days for shipping (real)': np.random.randint(0, 6, n),
+              'Days for shipment (scheduled)': np.random.randint(1, 5, n),
+              'Benefit per order': np.random.normal(22, 104, n),
+              'Sales per customer': np.random.normal(200, 80, n),
+              'Delivery Status': np.random.choice(['Shipping on time','Late delivery','Shipping canceled'], n, p=[0.4,0.55,0.05]),
+              'Late_delivery_risk': np.random.choice([0,1], n, p=[0.45,0.55]),
+              'Category Id': np.random.randint(1, 60, n),
+              'Category Name': np.random.choice(['Fishing','Cleats','Camping','Cardio','Electronics','Apparel','Footwear'], n),
+              'Customer City': np.random.choice(['New York','LA','Chicago','Houston'], n),
+              'Customer Country': 'US',
+              'Customer Email': 'test@test.com',
+              'Customer Fname': 'Test',
+              'Customer Lname': 'User',
+              'Customer Id': np.random.randint(1, 20001, n),
+              'Customer Segment': np.random.choice(['Consumer','Corporate','Home Office'], n),
+              'Customer State': 'CA',
+              'Customer Street': '123 Main St',
+              'Customer Zipcode': '90210',
+              'Department Id': np.random.randint(1, 10, n),
+              'Department Name': np.random.choice(['Fitness','Footwear','Outdoor','Sports'], n),
+              'Latitude': np.random.uniform(25, 48, n),
+              'Longitude': np.random.uniform(-125, -70, n),
+              'Market': np.random.choice(['LATAM','Europe','Pacific','US','Africa'], n),
+              'Order City': np.random.choice(['New York','LA','Chicago'], n),
+              'Order Country': 'US',
+              'Order Customer Id': np.random.randint(1, 20001, n),
+              'order date (DateOrders)': pd.date_range('2017-01-01', periods=n, freq='12min').strftime('%Y-%m-%d %H:%M:%S'),
+              'Order Id': np.arange(1, n+1),
+              'Order Item Id': np.arange(1, n+1),
+              'Order Item Discount': np.random.uniform(0, 50, n),
+              'Order Item Discount Rate': np.random.uniform(0, 0.3, n),
+              'Order Item Product Price': np.random.uniform(10, 500, n),
+              'Order Item Profit Ratio': np.random.normal(0.12, 0.47, n).clip(-2, 0.5),
+              'Order Item Quantity': np.random.randint(1, 6, n),
+              'Sales': np.random.uniform(10, 1000, n),
+              'Order Item Total': np.random.uniform(10, 1000, n),
+              'Order Profit Per Order': np.random.normal(30, 100, n),
+              'Order Region': np.random.choice(['West','East','South','Midwest'], n),
+              'Order State': 'CA',
+              'Order Status': np.random.choice(['COMPLETE','PENDING','CLOSED','SUSPECTED_FRAUD'], n, p=[0.4,0.35,0.2,0.05]),
+              'Order Zipcode': '90210',
+              'Product Card Id': np.random.randint(1, 500, n),
+              'Product Category Id': np.random.randint(1, 60, n),
+              'Product Description': 'Test product',
+              'Product Image': 'test.jpg',
+              'Product Name': np.random.choice(['Smart Watch','Kayak','Tent','Shoes','Jacket'], n),
+              'Product Price': np.random.uniform(10, 500, n),
+              'Product Status': 'Active',
+              'Shipping Mode': np.random.choice(['Standard Class','First Class','Second Class','Same Day'], n, p=[0.6,0.02,0.25,0.13]),
+              'Order Id_x': np.arange(1, n+1),
+              'Order Status_x': np.random.choice(['COMPLETE','PENDING'], n),
+          })
+          df.to_csv('data/raw/DataCoSupplyChainDataset.csv', index=False)
+          print(f'Synthetic data: {len(df)} rows')
+          "
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v --tb=short
+
+      - name: Run eval (detection only)
+        run: |
+          python eval/run_eval.py --skip-llm
