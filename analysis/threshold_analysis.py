@@ -13,6 +13,7 @@ import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
 import yaml
@@ -82,9 +83,9 @@ def run_zscore_sweep(df: pd.DataFrame, ground_truth: dict) -> list:
 
 
 def run_real_sweep(df: pd.DataFrame, ground_truth: dict, current_threshold: float) -> list:
-    """使用真实 detect_all 完整流程扫描 Z-Score 阈值。
+    """全流程阈值扫描（Z-Score 阈值变化 + detect_all 完整流程）。
 
-    每次修改 config 中的 zscore.threshold 后重新跑检测。
+    每次修改 config 中的 zscore.threshold 后重新跑完整检测。
     """
     results = []
     config_path = os.path.join(PROJECT, "config.yaml")
@@ -94,7 +95,6 @@ def run_real_sweep(df: pd.DataFrame, ground_truth: dict, current_threshold: floa
     thresholds = np.arange(1.5, 4.1, 0.2)
 
     for t in thresholds:
-        # 临时修改 config
         config["anomaly"]["zscore"]["threshold"] = float(t)
         tmp_path = os.path.join(PROJECT, "config_tmp.yaml")
         with open(tmp_path, "w", encoding="utf-8") as f:
@@ -110,7 +110,11 @@ def run_real_sweep(df: pd.DataFrame, ground_truth: dict, current_threshold: floa
                 detected.add(oid)
         p, r = compute_pr(detected, ground_truth)
         results.append({"threshold": round(t, 1), "precision": p, "recall": r})
-        os.remove(tmp_path)
+
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
 
         f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
         marker = " <-- current" if abs(t - current_threshold) < 0.01 else ""
@@ -119,38 +123,34 @@ def run_real_sweep(df: pd.DataFrame, ground_truth: dict, current_threshold: floa
     return results
 
 
-def _setup_chinese_font():
-    """设置中文字体，解决 matplotlib 乱码。"""
+def _get_cjk_font_prop():
+    """获取中文字体属性对象。"""
     import matplotlib.font_manager as fm
-    # Windows: 尝试多个中文字体
-    for font_name in ["Microsoft YaHei", "SimHei", "Noto Sans CJK SC", "WenQuanYi Micro Hei"]:
-        for f in fm.fontManager.ttflist:
-            if font_name in f.name:
-                plt.rcParams["font.sans-serif"] = [f.name, "DejaVu Sans"]
-                plt.rcParams["axes.unicode_minus"] = False
-                return f.name
-    # Fallback: English only
-    plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
-    return "DejaVu Sans"
+    for f in fm.fontManager.ttflist:
+        if "Microsoft YaHei" in f.name and "Regular" in str(f.style):
+            return fm.FontProperties(fname=f.fname)
+    # fallback: any YaHei
+    for f in fm.fontManager.ttflist:
+        if "YaHei" in f.name:
+            return fm.FontProperties(fname=f.fname)
+    for f in fm.fontManager.ttflist:
+        if "Noto Sans SC" in f.name:
+            return fm.FontProperties(fname=f.fname)
+    return fm.FontProperties()
 
 
 def plot_pr_curve(results: list, current: float, metric: str, output_path: str):
     """画 PR 曲线，标注当前阈值。"""
-    font_name = _setup_chinese_font()
-    print(f"  使用字体: {font_name}")
+    fp = _get_cjk_font_prop()
+    fp_small = fm.FontProperties(fname=fp.get_file())
+    fp_small.set_size(9)
+    print(f"  字体: {fp.get_file()}")
 
     fig, ax = plt.subplots(figsize=(10, 7))
 
     precisions = [r["precision"] for r in results]
     recalls = [r["recall"] for r in results]
     thresholds = [r["threshold"] for r in results]
-
-    # 数据范围（留 10% 边距让曲线占更大面积）
-    r_min, r_max = min(recalls), max(recalls)
-    p_min, p_max = min(precisions), max(precisions)
-    r_pad = (r_max - r_min) * 0.15 if r_max > r_min else 0.05
-    p_pad = (p_max - p_min) * 0.15 if p_max > p_min else 0.05
 
     # 连线
     ax.plot(recalls, precisions, "b-o", markersize=6, linewidth=2, label="PR Curve")
@@ -160,44 +160,38 @@ def plot_pr_curve(results: list, current: float, metric: str, output_path: str):
         if i % 2 == 0:
             ax.annotate(
                 f"z={th:.1f}",
-                (rc, pr),
-                textcoords="offset points",
-                xytext=(10, 5),
-                fontsize=8,
-                color="#555555",
+                (rc, pr), textcoords="offset points", xytext=(10, 5),
+                fontsize=8, color="#555555",
             )
 
     # 当前阈值红点
     current_idx = min(range(len(thresholds)), key=lambda i: abs(thresholds[i] - current))
     ax.scatter(
-        [recalls[current_idx]],
-        [precisions[current_idx]],
-        color="red", s=150, zorder=5,
-        label=f"Current z={current}",
+        [recalls[current_idx]], [precisions[current_idx]],
+        color="red", s=150, zorder=5, label=f"Current z={current}",
     )
     ax.annotate(
         f"z={current}\nP={precisions[current_idx]:.1%}  R={recalls[current_idx]:.1%}",
         (recalls[current_idx], precisions[current_idx]),
-        textcoords="offset points",
-        xytext=(15, -20),
+        textcoords="offset points", xytext=(15, -20),
         fontsize=10, color="red", fontweight="bold",
     )
 
     ax.set_xlabel("Recall", fontsize=13)
     ax.set_ylabel("Precision", fontsize=13)
-    ax.set_title(f"Z-Score Threshold PR Curve", fontsize=15, fontweight="bold")
+    ax.set_title("Z-Score Threshold PR Curve", fontsize=15, fontweight="bold")
     ax.legend(loc="lower left", fontsize=10)
     ax.grid(True, alpha=0.3)
 
-    # 放大到数据范围
-    ax.set_xlim(max(0, r_min - r_pad), min(1.02, r_max + r_pad))
-    ax.set_ylim(max(0, p_min - p_pad), min(1.02, p_max + p_pad))
+    # 固定坐标范围，让曲线占满整个图
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+    ax.set_aspect("equal")
 
-    # 去掉顶部和右侧边框
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-
     fig.tight_layout(pad=2)
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)
