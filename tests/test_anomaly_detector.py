@@ -19,6 +19,8 @@ from analysis.anomaly_detector import AnomalyDetector
 
 PASS = 0
 FAIL = 0
+LAST_RECALL = 0.0
+LAST_PRECISION = 0.0
 
 
 def check(condition, name):
@@ -156,7 +158,7 @@ def test_recall():
       - 统计方法与业务规则分开评估——混在一起 100% 是自欺欺人
       - 统计方法的 Recall 60-80% 算正常，追求 100% 是新手陷阱
     """
-    global PASS, FAIL
+    global PASS, FAIL, LAST_RECALL, LAST_PRECISION
 
     print("\n" + "=" * 70)
     print("Part 2: 召回率 + 精确率验证（visual_anomalies.csv）")
@@ -370,7 +372,10 @@ def test_recall():
     for c in checks:
         print(f"  {c}")
 
-    return stat_recall, stat_precision
+    LAST_RECALL = stat_recall
+    LAST_PRECISION = stat_precision
+    assert 0 <= stat_recall <= 1
+    assert 0 <= stat_precision <= 1
 
 
 # ============================================================
@@ -379,9 +384,9 @@ def test_recall():
 
 if __name__ == "__main__":
     test_edge_cases()
-    recall, precision = test_recall()
+    test_recall()
 
     print("\n" + "=" * 70)
     print(f"总结果: {PASS} PASS, {FAIL} FAIL")
-    print(f"统计方法 — Recall: {recall:.1%}  |  Precision: {precision:.1%}")
+    print(f"统计方法 — Recall: {LAST_RECALL:.1%}  |  Precision: {LAST_PRECISION:.1%}")
     print("=" * 70)

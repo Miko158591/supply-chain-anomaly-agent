@@ -85,16 +85,26 @@ def _validate_config(config: dict, config_path: str) -> None:
             logger.info("获取 API Key: https://platform.deepseek.com/api_keys")
 
 
-os.makedirs(os.path.join(PROJECT_ROOT, "logs"), exist_ok=True)
+_log_warning = None
+_log_handlers = [logging.StreamHandler(sys.stdout)]
+_log_dir = os.path.join(PROJECT_ROOT, "logs")
+try:
+    os.makedirs(_log_dir, exist_ok=True)
+    _log_handlers.insert(
+        0,
+        logging.FileHandler(os.path.join(_log_dir, "monitor.log"), encoding="utf-8"),
+    )
+except OSError as e:
+    _log_warning = f"文件日志不可用，已切换为控制台日志: {e}"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(PROJECT_ROOT, "logs", "monitor.log"), encoding="utf-8"),
-        logging.StreamHandler(sys.stdout),
-    ],
+    handlers=_log_handlers,
 )
 logger = logging.getLogger("supply-chain-monitor")
+if _log_warning:
+    logger.warning(_log_warning)
 
 
 # ================================================================
