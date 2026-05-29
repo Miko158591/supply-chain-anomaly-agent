@@ -145,7 +145,7 @@ notify:
 
 anomaly:
   zscore:
-    threshold: 2.5               # Z-Score 阈值
+    threshold: 2.0               # Z-Score 阈值（106 条评测集消融校准）
   consensus_min: 2               # 至少 2 种方法标异常才确认
 
 cluster:
@@ -185,13 +185,15 @@ python eval/run_eval.py --skip-llm
 
 | 指标 | 值 | 评委 |
 |------|-----|------|
-| 检测 F1 | 61.5% (10 样本) | — |
-| 归因均分 | **3.2/5** | V4 Pro（跨版本） |
-| 行动可操作性 | 4.4/5 | V4 Pro |
-| 诚实度 | 4.4/5 | V4 Pro |
+| Precision | 64.3% | z=2.0，106 条评测集 |
+| Recall | 83.3% | z=2.0，106 条评测集 |
+| 检测 F1 | **72.6%** | z=2.0，106 条评测集 |
+| 归因均分 | **3.4/5** | V4 Pro（跨版本） |
+| 行动可操作性 | 5.0/5 | V4 Pro |
+| 诚实度 | 4.8/5 | V4 Pro |
 | 端到端延迟 | 95.5s | — |
 
-测试用例：`eval/test_cases.json`（10 个，待扩充到 50 个）。
+测试用例：`eval/test_cases.json`（106 条分层样本，含 17 条统计型异常）。
 
 ## 命令行参数
 
